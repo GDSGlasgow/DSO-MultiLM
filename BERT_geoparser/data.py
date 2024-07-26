@@ -208,7 +208,11 @@ class Data:
             # flatten into single lists
             ids = flatten(ids)
             tags = flatten(tags)
+<<<<<<< HEAD
         if (sentence[0] != '[CLS]') and (sentence[1] != '[SEP]'):
+=======
+        if (sentence[0] != '[CLS]') and (sentence[-1] != '[SEP]'):
+>>>>>>> a77f96d0820c52c0cbe32d1d300a3d607231739f
             # crop to max_len -2 (allowing for CLS/SEP tags)
             ids = ids[:self.max_len - 2]        
             tags = tags[:self.max_len - 2]
