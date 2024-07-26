@@ -1,5 +1,0 @@
-<text> {} <\text>
-
-<toponym> {} <\toponym>
-
-<matches> {} <\matches>
