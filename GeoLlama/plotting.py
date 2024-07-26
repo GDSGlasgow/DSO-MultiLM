@@ -34,7 +34,7 @@ def get_mapbox(df:pd.DataFrame)->dict:
     xmin, xmax, ymin, ymax = get_bounds(df)
     x_center = np.mean([xmin, xmax])
     y_center = np.mean([ymin, ymax])
-    plot_center = go.layout.Center(lat=y_center, lon=x_center)
+    plot_center = go.layout.mapbox.Center(lat=y_center, lon=x_center)
     zoom = get_zoom(xmin, xmax, ymin, ymax)
     return dict(bearing=0, center=plot_center, pitch=0, zoom=zoom)
 
