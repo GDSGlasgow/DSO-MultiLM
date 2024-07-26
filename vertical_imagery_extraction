@@ -1,1 +1,183 @@
+import rasterio
+import rasterio.warp
+import geopandas as gpd
+from shapely.geometry import box
+import numpy as np
+import os
+# Path to the input TIFF file
+input_tif = r"Insert your path"
+
+# Path to the output folder for clipped rasters
+output_folder = r"Insert your path"
+if not os.path.exists(output_folder):
+    os.makedirs(output_folder)
+
+# Path to the reprojected TIFF file (3857 to 4326)
+reprojected_tif = os.path.join(output_folder, 'map8_reprojected.tif')
+
+# Reproject the input TIFF to WGS84
+with rasterio.open(input_tif) as src:
+    transform, width, height = rasterio.warp.calculate_default_transform(
+        src.crs, 'EPSG:4326', src.width, src.height, *src.bounds)
+    kwargs = src.meta.copy()
+    kwargs.update({
+        'crs': 'EPSG:4326',
+        'transform': transform,
+        'width': width,
+        'height': height
+    })
+
+    with rasterio.open(reprojected_tif, 'w', **kwargs) as dst:
+        for i in range(1, src.count + 1):
+            rasterio.warp.reproject(
+                source=rasterio.band(src, i),
+                destination=rasterio.band(dst, i),
+                src_transform=src.transform,
+                src_crs=src.crs,
+                dst_transform=transform,
+                dst_crs='EPSG:4326',
+                resampling=rasterio.warp.Resampling.nearest)
+
+## Step 1: Create a grid shapefile based on the extent of the input TIFF
+# Read the reprojected TIFF file
+with rasterio.open(reprojected_tif) as src:
+    bounds = src.bounds
+    crs = src.crs
+
+# Create a grid of 0.1 degree x 0.1 degree polygons for testing (approx. 10km x 10km at the equator)
+grid_size = 0.009  # Grid size in degrees
+cols = np.arange(bounds.left, bounds.right, grid_size)
+rows = np.arange(bounds.top, bounds.bottom, -grid_size)  # Note the negative step to go from top to bottom
+
+polygons = []
+identifiers = []
+top_left_x = []
+top_left_y = []
+top_right_x = []
+top_right_y = []
+bottom_left_x = []
+bottom_left_y = []
+bottom_right_x = []
+bottom_right_y = []
+center_x = []
+center_y = []
+
+for row_idx, y in enumerate(rows):
+    for col_idx, x in enumerate(cols):
+        polygon = box(x, y - grid_size, x + grid_size, y)  # Adjust the polygon creation to start from the top
+        identifier = f"{row_idx + 1}r_{col_idx + 1}c"
+        polygons.append(polygon)
+        identifiers.append(identifier)
+        
+        # Calculate corner coordinates
+        top_left_x.append(x)
+        top_left_y.append(y)
+        top_right_x.append(x + grid_size)
+        top_right_y.append(y)
+        bottom_left_x.append(x)
+        bottom_left_y.append(y - grid_size)
+        bottom_right_x.append(x + grid_size)
+        bottom_right_y.append(y - grid_size)
+        
+        # Calculate center coordinate
+        center_x.append(x + grid_size / 2)
+        center_y.append(y - grid_size / 2)
+
+# Create a GeoDataFrame from the polygons and identifiers
+grid_gdf = gpd.GeoDataFrame({
+    'geometry': polygons,
+    'identifier': identifiers,
+    'top_left_x': top_left_x,
+    'top_left_y': top_left_y,
+    'top_right_x': top_right_x,
+    'top_right_y': top_right_y,
+    'bottom_left_x': bottom_left_x,
+    'bottom_left_y': bottom_left_y,
+    'bottom_right_x': bottom_right_x,
+    'bottom_right_y': bottom_right_y,
+    'center_x': center_x,
+    'center_y': center_y
+}, crs=crs)
+
+# Save the grid to a shapefile
+grid_shapefile = os.path.join(output_folder, 'grid_1km_with_coords.shp')
+grid_gdf.to_file(grid_shapefile)
+
+
+## Step 2: Clip the input TIFF based on the grid polygon features
+
+
+import rasterio.mask
+import numpy as np
+
+
+# Function to clip the raster based on a polygon and save the output
+def clip_raster_by_polygon(raster_path, polygon, output_path):
+    with rasterio.open(raster_path) as src:
+        out_image, out_transform = rasterio.mask.mask(src, [polygon], crop=True)
+        out_meta = src.meta.copy()
+        out_meta.update({"driver": "GTiff",
+                         "height": out_image.shape[1],
+                         "width": out_image.shape[2],
+                         "transform": out_transform})
+
+        with rasterio.open(output_path, "w", **out_meta) as dest:
+            dest.write(out_image)
+
+
+# Clip the input TIFF based on each grid cell and save the outputs
+for i, row in grid_gdf.iterrows():
+    polygon = row['geometry']
+    identifier = str(row['center_x']) + '_' + str(row['center_y'])
+    output_tif = os.path.join(output_folder, f'{identifier}_clip.tif')
+    clip_raster_by_polygon(reprojected_tif, polygon, output_tif)
+
+
+
+import os
+import shapely.geometry
+import math
+
+  # List all files in the given tile_path directory and create a Point object from the given coordinates
+def tile_from_coordinates(coords: tuple, tile_path: str) -> str:
+    files = os.listdir(tile_path)
+    point = shapely.geometry.Point(coords)
+    closest_tile = None
+    min_distance = float('inf')
+    
+    # For loop through each file in the directory to check if the file has a .tif extension and extract coordinate information from the tile nam
+    for tile_name in files:
+        if tile_name.endswith('.tif'):
+            bounds = split_text(tile_name, '_', '.tif')
+            
+            # If the extracted information has x and y coordinates 
+            if len(bounds) == 2:
+                # Convert extracted coordinates to floats
+                xcentre, ycentre = [float(n) for n in bounds]
+                # Create a Point object for the tile's centre coordinates
+                centrepoint = shapely.geometry.Point(xcentre, ycentre)
+                # Calculate the distance between the given point and the tile's centre point
+                distance = point.distance(centrepoint)
+                 # If this distance is less than the current minimum distance and is less than 1 unit
+                if distance < min_distance and distance < 1:
+                    min_distance = distance
+                    closest_tile = tile_name
+    # Return the closest tile or 'file not found' if no suitable tile is found
+    return closest_tile if closest_tile is not None else 'file not found'
+
+def split_text(text: str, delimiter: str, extension: str) -> list:
+    # Remove the file extension from the text
+    cleaned_text = text.rstrip(extension)
+      # Remove the '_clip' if present
+    cleaned_text = cleaned_text.split('_clip')[0]
+    # Split the text by the given delimiter
+    parts = cleaned_text.split(delimiter)
+    return parts
+# Input coordinates and tile path
+coords = (103.620238928, 1.348558940)
+tile_path = r'Input your path'
+tile_name = tile_from_coordinates(coords, tile_path)
+print(tile_name)
+
+
 
