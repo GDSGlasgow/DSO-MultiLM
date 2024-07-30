@@ -8,7 +8,8 @@ import os
 PROJECT_PATH = os.getcwd()
 TEST_PATH = os.path.join(PROJECT_PATH, "test")
 sys.path.append(TEST_PATH)
-# third party imports. Use a mock package if running from test script
+# third party imports
+# if running for testing then do not import Unsloth due to compatability issues
 try:
     from unsloth import FastLanguageModel
 except ImportError:
@@ -159,12 +160,12 @@ class RAGModel(Model):
         input = self.input_template.format(text, toponym, matches)
         return self.format_prompt(instruction, input, '')   
     
-    def clean_response(self, response, text):
+    def clean_response(self, response, validation):
         """Sanitizes an output into a dictionary with no repeated toponyms, and
         only those toponyms which appear in the text.
         args:
             response (str) : the response to be sanitized.
-            text (str) : the original text.
+            validation (str) : the matches to validate against.
         returns:
             dict[str,str|float] : a formatted output.     
         """
@@ -172,9 +173,14 @@ class RAGModel(Model):
         output = response.replace("'", '"').replace('True', 'true').replace('False', 'false')
         # try to read as a json, and attempt to fix otherwise.
         try:
-            return json.loads(output)
+            json_out = json.loads(output)
         except:
-            return self.fix_json(output)
+            json_out=  self.fix_json(output)
+        
+        if validation is not None: # note we don't want this to proc if []
+            return self.validate_json(json_out, validation)
+        else:
+            return json_out
     
     def fix_json(self, json_str:str):
         """Uses the expected format of the JSON to fix potential errors, such as
@@ -188,9 +194,10 @@ class RAGModel(Model):
 
         words = self.extract_words(json_str)
         # add missing words:
-        expected_words = ['name', 'latitude', 'longitude' ,'RAG_estimated']
-        if any([w not in words for w in expected_words]):
-            words = self.add_missing_words(words, expected_words)
+        expected_keys = ['name', 'latitude', 'longitude' ,'RAG_estimated']
+        if any([w not in words for w in expected_keys]):
+            words = self.add_missing_keys(words, expected_keys)
+        ### get the values for each of the expected keys
         place_name = self.get_word(words=words, 
                                    start_word='name', 
                                    stop_word='latitude')
@@ -208,25 +215,26 @@ class RAGModel(Model):
                 "longitude":literal_eval(longitude), 
                 "RAG_estimated":literal_eval(bools[0].capitalize())}  
 
-    def add_missing_words(self, words:list, expected:list):
-        """Adds missing words to a list of words if they are in expected. New 
-        words are added in the order they appear in expected, and proceded by an
-        an empty entry in the list.
+    def add_missing_keys(self, words:list, expected_keys:list):
+        """Given a list of words taken as items from a dictionary and ordered as
+        [key, value, key, value,...], this function adds a [key, False] pair 
+        from expected keys if it does not already appear in words. The keys will
+        be added in the order they appear in expected_keys.
         Args: 
-            words (list[str]) : A list of words.
-            expected (list[str]) : a list of words expected to be in words in order.
+            words (list[str]) : A list of words structured as [key, value, ...].
+            expected (list[str]) : a list of keys expected to be in words in order.
         Returns
-            list[str] the original list with expected words added in postion.
+            list[str] the original list with expected keys added in postion.
         """
         i = 0
-        for word in expected:
-            if word not in words:
-                words.insert(i, word)
+        for key in expected_keys:
+            if key not in words:
+                # [key, False]
+                words.insert(i, key)
                 words.insert(i+1, 'False') 
-                i += 4
-            else:
-                i += 2
-        print(words)
+                # increase index by two
+                i+=2
+            i+=2
         return words
     
     
@@ -241,7 +249,20 @@ class RAGModel(Model):
             list[str] : a list of full words in the json.
         """  
         # gets just the words, including hyphens, special characters etc
-        words_pattern = r'\b[\w\'\u00C0-\u017F]+(?:[-.\'][\w\u00C0-\u017F]+)*\b'
+        words_pattern = re.compile(r'''
+        # Match words including hyphens, apostrophes, and accented characters
+        (?:
+            \b[\w\u00C0-\u017F]+        # Word characters
+            (?:[-.\'][\w\u00C0-\u017F]+)* # Hyphens, periods, apostrophes
+        )
+        |
+        # Match numbers, including negative and decimal numbers
+        (?:
+            -?                          # Optional negative sign
+            \d+                         # digit(s)
+            (?:\.\d+)?                  # Optional decimal point digit(s)
+        )
+    ''', re.VERBOSE)
         words = re.findall(words_pattern, json_str) 
         return words
     
@@ -270,6 +291,30 @@ class RAGModel(Model):
         place_words = words[start_idx+1:stop_idx]
         place_name = ' '.join([str(w) for w in place_words])
         return place_name
+    
+    def validate_json(self, json_dict:dict, matches:list[dict]):
+        """Checks if the geographic location described in json_dict exists in 
+        the list of locations in matches, to within 3 s.f. for lat/lon.
+        args:
+            json_dict (dict) : with 'latitude' and 'longitude' keys.
+            matches (list[dict]):  with 'latitude' and 'longitude' keys.
+        returns:
+            dict : as json_dict, with RAG_estimated=True if location in matches.    
+        """
+        # if matches is an empty list set RAG as False
+        if len(matches) == 0:
+            json_dict.update({'RAG_estimated':False})
+            return json_dict
+        # otherwise check for matching coordinates
+        rag=False
+        for match in matches:
+            d_lat = abs(match['latitude']-json_dict['latitude'])
+            d_lon = abs(match['longitude']-json_dict['longitude'])
+            if (d_lat <= 0.001) and (d_lon <= 0.001):
+                rag =True
+        json_dict.update({'RAG_estimated':rag}) 
+        return json_dict
+
         
         
 class TopoModel(Model):
