@@ -2,8 +2,23 @@
 import json
 import re
 from typing import Optional
-# local imports
-from unsloth import FastLanguageModel
+import sys
+from ast import literal_eval
+import os
+PROJECT_PATH = os.getcwd()
+TEST_PATH = os.path.join(PROJECT_PATH, "test")
+sys.path.append(TEST_PATH)
+# third party imports. Use a mock package if running from test script
+try:
+    from unsloth import FastLanguageModel
+except ImportError:
+    # Use a dummy model if the library is not available
+    class FastLanguageModel:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def predict(self, text):
+            return "dummy prediction"
 
 
 """Uses the GeoLlama3-7b-toponym and GeoLlama3-7b-RAG models to extract and
@@ -24,8 +39,10 @@ class Model:
                  prompt_path:str, 
                  instruct_path:str, 
                  input_path:str,
-                 config_path:str):
+                 config_path:str,
+                 test_mode:bool=False):
         
+        self.test_mode = test_mode
         self.model_name = model_name
         self.prompt_path = prompt_path
         self.instruct_path = instruct_path
@@ -44,12 +61,16 @@ class Model:
         If using an OpenAI model this block could be changed to include an API
         call using an API key.
         """
-        self.model, self.tokenizer = FastLanguageModel.from_pretrained(
-        model_name = self.model_name,
-        max_seq_length = self.config['max_seq_length'],
-        dtype = self.config['dtype'],
-        load_in_4bit = self.config['load_in_4bit'])  
-        FastLanguageModel.for_inference(self.model)
+        if self.test_mode:
+            self.model = DummyModel()
+            self.tokenizer = DummyTokenizer()
+        else:
+            self.model, self.tokenizer = FastLanguageModel.from_pretrained(
+            model_name = self.model_name,
+            max_seq_length = self.config['max_seq_length'],
+            dtype = self.config['dtype'],
+            load_in_4bit = self.config['load_in_4bit'])  
+            FastLanguageModel.for_inference(self.model)
         
     def load_prompt_templates(self):
         """Loads the prompts from the paths provided in __init__. Note that 
@@ -96,6 +117,7 @@ class Model:
         # split out the response and EOS tokens
         response = str_output[0].split(self.config['response_token'])[1]
         response = response.split(self.tokenizer.eos_token)[0]
+        print(response)
         # clean the ouput
         # TODO : change text to more generic validation_data
         if hasattr(self, 'clean_response'):
@@ -114,8 +136,9 @@ class RAGModel(Model):
                  prompt_path:str, 
                  instruct_path:str, 
                  input_path:str, 
-                 config_path:str):
-        init_args = model_name, prompt_path, instruct_path, input_path, config_path
+                 config_path:str,
+                 test_mode:bool=False):
+        init_args = model_name, prompt_path, instruct_path, input_path, config_path, test_mode
         # use attributes from Model object
         super().__init__(*init_args) 
         
@@ -163,7 +186,11 @@ class RAGModel(Model):
             dict : the fixed json as a dictionary.   
         """
 
-        words = self.extract_words(json_str) 
+        words = self.extract_words(json_str)
+        # add missing words:
+        expected_words = ['name', 'latitude', 'longitude' ,'RAG_estimated']
+        if any([w not in words for w in expected_words]):
+            words = self.add_missing_words(words, expected_words)
         place_name = self.get_word(words=words, 
                                    start_word='name', 
                                    stop_word='latitude')
@@ -177,11 +204,32 @@ class RAGModel(Model):
         bools = [w for w in words if w.lower() in ['true', 'false']] 
         
         return {"name":place_name, 
-                "latitude":latitude, 
-                "longitude":longitude, 
-                "RAG_estimated":bools[0]}  
+                "latitude":literal_eval(latitude), 
+                "longitude":literal_eval(longitude), 
+                "RAG_estimated":literal_eval(bools[0].capitalize())}  
 
-        
+    def add_missing_words(self, words:list, expected:list):
+        """Adds missing words to a list of words if they are in expected. New 
+        words are added in the order they appear in expected, and proceded by an
+        an empty entry in the list.
+        Args: 
+            words (list[str]) : A list of words.
+            expected (list[str]) : a list of words expected to be in words in order.
+        Returns
+            list[str] the original list with expected words added in postion.
+        """
+        i = 0
+        for word in expected:
+            if word not in words:
+                words.insert(i, word)
+                words.insert(i+1, 'False') 
+                i += 4
+            else:
+                i += 2
+        print(words)
+        return words
+    
+    
     def extract_words(self, json_str:str)->list[str]:
         """Extracts the full words and +/- floats (inc. special characters, 
         periods, hyphens etc) from a json string. We're using quite a clunky 
@@ -220,7 +268,7 @@ class RAGModel(Model):
         if stop_word:
             stop_idx = words.index(stop_word)
         place_words = words[start_idx+1:stop_idx]
-        place_name = ' '.join(place_words)
+        place_name = ' '.join([str(w) for w in place_words])
         return place_name
         
         
@@ -234,8 +282,9 @@ class TopoModel(Model):
                  prompt_path:str, 
                  instruct_path:str, 
                  input_path:str, 
-                 config_path:dict):
-        init_args = model_name, prompt_path, instruct_path, input_path, config_path
+                 config_path:dict,
+                 test_mode:bool=False):
+        init_args = model_name, prompt_path, instruct_path, input_path, config_path, test_mode
         super().__init__(*init_args)    
            
     def toponym_prompt(self, text:str)->str:
@@ -266,7 +315,6 @@ class TopoModel(Model):
         except:
             output = self.fix_json(response)
         # validate the toponyms against the text
-        print(output)
         valid_toponyms = self.validate_toponyms(output['toponyms'], text)
         return {'toponyms':valid_toponyms}    
         
@@ -279,17 +327,16 @@ class TopoModel(Model):
             json_str (str) : the output json string.
         returns:
             dict [str, list] : a cleaned ouput.
-        
-        #TODO : I think this can be improved to be less arbritrary.
         """
-        # get the list part of the json_str
-        list_part = json_str.split('[')[1] 
-        # remove the closing ']}\n' from the json
-        if not list_part[-3:].isalpha():
-            list_part = list_part[:-3]
-        # split into list elements and clean
-        items = list_part.split(', ')
-        items = [item.strip('"').strip("'").strip() for item in items]
+        # get the list part of the json_str and split into list
+        list_part = json_str.split('["')[1] 
+        # we now want to get rid of any trailing non-alphanumerics
+        for i, item in enumerate(list_part[::-1]):
+            if item.isalpha() or item.isnumeric():
+                break
+        list_part = list_part[:-i]
+        # split into list elements
+        items = list_part.split('", "')
         # deduplicate
         unique_items = list(set(items))
         return {"toponyms":[t for t in unique_items if len(t) != 0]}
@@ -309,4 +356,39 @@ class TopoModel(Model):
                 valid_toponyms.append(toponym)
         return valid_toponyms
         
-             
+# Dummy models for testing
+class DummyModel:
+    
+    def __init__(self):
+        self.model_type=None
+    def generate(self, **kwargs):
+        if self.model_type == 'toponym':
+            return ["{'toponyms':['Paris', 'London', 'New York']}"]
+        elif self.model_type == 'RAG':
+            return ["[{'name':'Paris', 'latitude':-1.43, 'longitude':32.48},\
+                    {'name':'London','latitude':-0.45, 'longitude':48.3},\
+                    {'name':'New York', 'latitude':-94.34, 'longitue':'24.73'}]"]
+        else:
+            return ['input ### Response: default output <\out>']
+            
+
+class DummyTokenizer:
+    
+    def __init__(self):
+        self.eos_token = '<\out>'
+        
+    def __call__(self, text, **kwargs):
+        return DummyOutput()
+
+    def batch_decode(self, output):
+        return output
+ 
+class DummyOutput:
+       
+    def to(self, device):
+        return {}
+    
+
+    
+
+    

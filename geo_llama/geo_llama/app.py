@@ -1,10 +1,10 @@
 # third party imports
 import gradio as gr
 # local imports
-from translator import Translator
-from model import RAGModel, TopoModel
-from geo_llama import GeoLlama
-from plotting import plot_map
+from geo_llama.translator import Translator
+from geo_llama.model import RAGModel, TopoModel
+from geo_llama.geo_llama import GeoLlama
+from geo_llama.plotting import plot_map
 
 """This script runs the full geoparsing pipeline using a Gradio web browser
 based app. This script should be edited to reflect changes to the model name or

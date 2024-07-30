@@ -1,7 +1,7 @@
 # standard library imports
 from datetime import datetime
 # local imports
-from gazetteer import Gazetteer 
+from geo_llama.gazetteer import Gazetteer 
 
 """Uses the GeoLlama3-7b-toponym and GeoLlama3-7b-RAG models to extract and
 geolocate toponyms from English text.
