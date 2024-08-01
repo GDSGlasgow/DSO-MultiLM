@@ -1,13 +1,13 @@
 # standrad library imports
 import json
 import re
-from typing import Optional
 import sys
-from ast import literal_eval
 import os
-PROJECT_PATH = os.getcwd()
-TEST_PATH = os.path.join(PROJECT_PATH, "test")
-sys.path.append(TEST_PATH)
+from ast import literal_eval
+from typing import Optional
+#PROJECT_PATH = os.getcwd()
+#TEST_PATH = os.path.join(PROJECT_PATH, "test")
+#sys.path.append(TEST_PATH)
 # third party imports
 # if running for testing then do not import Unsloth due to compatability issues
 try:
@@ -99,7 +99,7 @@ class Model:
         text = self.prompt_template.format(instruction, input, response)
         return { "text" : [text], }
             
-    def get_output(self, prompt:str, text:Optional[str]=None)->str:
+    def get_output(self, prompt:str, validation_data:Optional[str]=None)->str:
         """retrieves the output from the LLM given the provided prompt. Passing
         the orginal text will also permit validation of the result, e.g. 
         checking that the extracted toponyms exist in the text.
@@ -118,11 +118,10 @@ class Model:
         # split out the response and EOS tokens
         response = str_output[0].split(self.config['response_token'])[1]
         response = response.split(self.tokenizer.eos_token)[0]
-        print(response)
         # clean the ouput
         # TODO : change text to more generic validation_data
         if hasattr(self, 'clean_response'):
-            return self.clean_response(response, text)
+            return self.clean_response(response, validation_data)
         else:
             return response
 
@@ -307,14 +306,13 @@ class RAGModel(Model):
             return json_dict
         # otherwise check for matching coordinates
         rag=False
-        for match in matches:
-            d_lat = abs(match['latitude']-json_dict['latitude'])
-            d_lon = abs(match['longitude']-json_dict['longitude'])
+        for m in matches:
+            d_lat = abs(float(m['lat'])-float(json_dict['latitude']))
+            d_lon = abs(float(m['lon'])-float(json_dict['longitude']))
             if (d_lat <= 0.001) and (d_lon <= 0.001):
                 rag =True
         json_dict.update({'RAG_estimated':rag}) 
         return json_dict
-
         
         
 class TopoModel(Model):

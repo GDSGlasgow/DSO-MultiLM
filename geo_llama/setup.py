@@ -4,7 +4,7 @@ import pathlib
 import pkg_resources
 import setuptools
 import subprocess
-from setup
+from setuptools.command.install import install
 import shutil
 
 # Check if Git is installed

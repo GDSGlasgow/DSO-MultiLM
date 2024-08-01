@@ -2,6 +2,7 @@
 from transformers import M2M100ForConditionalGeneration, M2M100Tokenizer
 from lingua import LanguageDetectorBuilder, Language
 from tqdm import tqdm
+from typing import Optional
 
 class Translator:
     
@@ -54,41 +55,41 @@ class Translator:
         Returns:
             str: translated text in out_lang
         """
-        src_lang = self.detect_language(text)
-        if src_lang=='en':
-            return {'language':src_lang, 'translation':text}
-        src_tokenizer = self.get_tokenizer(src_lang)
+        self.src_lang = self.detect_language(text)
+        if self.src_lang==out_lang:  # return text without translation
+            return {'language':self.src_lang, 'translation':text}
+        # build the tokenizer
+        self.get_tokenizer()
         # clean up the input to split into lines and remove formatting
         lines = [l.strip('\n') for l in text.split('\n')]
         lines = [l for l in lines if len(l.strip(' '))>0]
         # loop over lines and translate
         translated_lines = []
         print(f'Translating {len(lines)} lines:')
-
         for line in tqdm(lines):
         
-            src_tokens = src_tokenizer(line.strip('\n'), return_tensors='pt')
-            out_tokens = self.model.generate(**src_tokens, forced_bos_token_id=src_tokenizer.get_lang_id(out_lang))
-            out_line = src_tokenizer.batch_decode(out_tokens, skip_special_tokens=True)
+            src_tokens = self.tokenizer(line.strip('\n'), return_tensors='pt')
+            out_tokens = self.model.generate(**src_tokens, forced_bos_token_id=self.get_lang_id(out_lang))
+            out_line = self.tokenizer.batch_decode(out_tokens, skip_special_tokens=True)
             translated_lines.append(out_line[0])
         
         out_text = '\n\n'.join(translated_lines)
         
-        return {'language':src_lang, 'translation':out_text}
+        return {'language':self.src_lang, 'translation':out_text}
     
-    def get_tokenizer(self, src_lang:str)->M2M100Tokenizer:
+    def get_tokenizer(self)->M2M100Tokenizer:
         """Retrieves the tokenizer in the required source language. If the 
-
-        Args:
-            src_lang (str): ISO0-639-1 country code
-
+        
         Returns:
             M2M100Tokenizer: _description_
         """
         try:
-            return M2M100Tokenizer.from_pretrained(self.model_str, src_lang=src_lang)
+            self.tokenizer =  M2M100Tokenizer.from_pretrained(self.model_str, 
+                                                              src_lang=self.src_lang)
         except:
-            return M2M100Tokenizer.from_pretrained(self.model_str)
+            print(f'Language "{src_lang}" not supported by M2M100 tokenizer.\
+                  Attempting with default tokenizer, whcih may impact results.')
+            self.tokenizer = M2M100Tokenizer.from_pretrained(self.model_str)
         
     
     def detect_language(self, text:str)-> str:

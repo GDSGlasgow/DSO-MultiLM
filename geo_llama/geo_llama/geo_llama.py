@@ -1,7 +1,12 @@
 # standard library imports
 from datetime import datetime
+import os
+import sys
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.dirname(SCRIPT_DIR))
+#sys.path.append('../geo_llama')
 # local imports
-from geo_llama.gazetteer import Gazetteer 
+from .gazetteer import Gazetteer 
 
 """Uses the GeoLlama3-7b-toponym and GeoLlama3-7b-RAG models to extract and
 geolocate toponyms from English text.
@@ -72,7 +77,8 @@ class GeoLlama:
         rag_prompt = self.rag_model.geoparse_prompt(toponym=toponym, 
                                                     text=text, 
                                                     matches=matches)
-        output=self.rag_model.get_output(rag_prompt['text'], text)
+        output=self.rag_model.get_output(rag_prompt['text'],
+                                         validation_data=matches)
         return output
             
         

@@ -3,9 +3,10 @@ gradio
 lingua-language-detector
 ##xformers<0.0.26
 accelerate==0.33
-huggingface-hub
+geopy
 jupyter
 pandas
+plotly
 tokenizers
 #torch==2.3.1+cu121
 tqdm
