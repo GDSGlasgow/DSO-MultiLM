@@ -69,7 +69,8 @@ class Translator:
         for line in tqdm(lines):
         
             src_tokens = self.tokenizer(line.strip('\n'), return_tensors='pt')
-            out_tokens = self.model.generate(**src_tokens, forced_bos_token_id=self.get_lang_id(out_lang))
+            lang_id = self.tokenizer.get_lang_id(out_lang)
+            out_tokens = self.model.generate(**src_tokens, forced_bos_token_id=lang_id)
             out_line = self.tokenizer.batch_decode(out_tokens, skip_special_tokens=True)
             translated_lines.append(out_line[0])
         
@@ -87,7 +88,7 @@ class Translator:
             self.tokenizer =  M2M100Tokenizer.from_pretrained(self.model_str, 
                                                               src_lang=self.src_lang)
         except:
-            print(f'Language "{src_lang}" not supported by M2M100 tokenizer.\
+            print(f'Language "{self.src_lang}" not supported by M2M100 tokenizer.\
                   Attempting with default tokenizer, whcih may impact results.')
             self.tokenizer = M2M100Tokenizer.from_pretrained(self.model_str)
         

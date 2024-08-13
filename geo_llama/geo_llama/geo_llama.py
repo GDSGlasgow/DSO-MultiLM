@@ -38,6 +38,10 @@ class GeoLlama:
         Returns:
             dict: A json formatted dictionary with resolved locations. 
         """
+        # Check that the input is a string
+        if not isinstance(text, str):
+            raise TypeError(f'text should be type str not {type(text)}')
+        # extract the toponyms
         toponyms = self.get_toponyms(text)
         output = []
         # estimate location foreach toponym
