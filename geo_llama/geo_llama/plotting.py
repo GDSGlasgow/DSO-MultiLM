@@ -3,10 +3,12 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 
-def plot_map(json_locations):
+"""A few functions to produce the output maps"""
+
+def plot_map(json_locations, translate_cache):
     df = pd.DataFrame(json_locations)
     mapbox = get_mapbox(df)
-    name_list = df['name'].tolist()
+    name_list = [translate_cache[n] for n in df['name'].tolist()]
 
     fig = go.Figure(go.Scattermapbox(
                 customdata=name_list,
@@ -53,7 +55,7 @@ def get_bounds(df:pd.DataFrame)->tuple[float, float, float, float]:
     return xmin, xmax, ymin, ymax
 
 def get_zoom(xmin:float, xmax:float, ymin:float, ymax:float):
-    """"""
+    """Produces an appropriate zoom level for agiven extent."""
     max_bound = max(abs(xmax-xmin), abs(ymax-ymin)) * 111
     zoom = 10 - np.log(max_bound)
     return zoom

@@ -1,5 +1,7 @@
 models/
-data/
+*.zip
+image_geocoding/
+*.pptx
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

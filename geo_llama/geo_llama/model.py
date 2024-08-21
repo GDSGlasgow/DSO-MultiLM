@@ -1,9 +1,22 @@
 # standrad library imports
 import json
 import re
+import sys
+import os
+from ast import literal_eval
 from typing import Optional
-# local imports
-from unsloth import FastLanguageModel
+# third party imports
+# if running for testing then do not import Unsloth due to compatability issues
+try:
+    from unsloth import FastLanguageModel
+except ImportError:
+    # Use a dummy model if the library is not available
+    class FastLanguageModel:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def predict(self, text):
+            return "dummy prediction"
 
 
 """Uses the GeoLlama3-7b-toponym and GeoLlama3-7b-RAG models to extract and
@@ -24,8 +37,10 @@ class Model:
                  prompt_path:str, 
                  instruct_path:str, 
                  input_path:str,
-                 config_path:str):
+                 config_path:str,
+                 test_mode:bool=False):
         
+        self.test_mode = test_mode
         self.model_name = model_name
         self.prompt_path = prompt_path
         self.instruct_path = instruct_path
@@ -44,12 +59,16 @@ class Model:
         If using an OpenAI model this block could be changed to include an API
         call using an API key.
         """
-        self.model, self.tokenizer = FastLanguageModel.from_pretrained(
-        model_name = self.model_name,
-        max_seq_length = self.config['max_seq_length'],
-        dtype = self.config['dtype'],
-        load_in_4bit = self.config['load_in_4bit'])  
-        FastLanguageModel.for_inference(self.model)
+        if self.test_mode:
+            self.model = DummyModel()
+            self.tokenizer = DummyTokenizer()
+        else:
+            self.model, self.tokenizer = FastLanguageModel.from_pretrained(
+            model_name = self.model_name,
+            max_seq_length = self.config['max_seq_length'],
+            dtype = self.config['dtype'],
+            load_in_4bit = self.config['load_in_4bit'])  
+            FastLanguageModel.for_inference(self.model)
         
     def load_prompt_templates(self):
         """Loads the prompts from the paths provided in __init__. Note that 
@@ -77,7 +96,7 @@ class Model:
         text = self.prompt_template.format(instruction, input, response)
         return { "text" : [text], }
             
-    def get_output(self, prompt:str, text:Optional[str]=None)->str:
+    def get_output(self, prompt:str, validation_data:Optional[str]=None)->str:
         """retrieves the output from the LLM given the provided prompt. Passing
         the orginal text will also permit validation of the result, e.g. 
         checking that the extracted toponyms exist in the text.
@@ -99,7 +118,7 @@ class Model:
         # clean the ouput
         # TODO : change text to more generic validation_data
         if hasattr(self, 'clean_response'):
-            return self.clean_response(response, text)
+            return self.clean_response(response, validation_data)
         else:
             return response
 
@@ -114,8 +133,9 @@ class RAGModel(Model):
                  prompt_path:str, 
                  instruct_path:str, 
                  input_path:str, 
-                 config_path:str):
-        init_args = model_name, prompt_path, instruct_path, input_path, config_path
+                 config_path:str,
+                 test_mode:bool=False):
+        init_args = model_name, prompt_path, instruct_path, input_path, config_path, test_mode
         # use attributes from Model object
         super().__init__(*init_args) 
         
@@ -136,12 +156,12 @@ class RAGModel(Model):
         input = self.input_template.format(text, toponym, matches)
         return self.format_prompt(instruction, input, '')   
     
-    def clean_response(self, response, text):
+    def clean_response(self, response, validation):
         """Sanitizes an output into a dictionary with no repeated toponyms, and
         only those toponyms which appear in the text.
         args:
             response (str) : the response to be sanitized.
-            text (str) : the original text.
+            validation (str) : the matches to validate against.
         returns:
             dict[str,str|float] : a formatted output.     
         """
@@ -149,9 +169,14 @@ class RAGModel(Model):
         output = response.replace("'", '"').replace('True', 'true').replace('False', 'false')
         # try to read as a json, and attempt to fix otherwise.
         try:
-            return json.loads(output)
+            json_out = json.loads(output)
         except:
-            return self.fix_json(output)
+            json_out=  self.fix_json(output)
+        
+        if validation is not None: # note we don't want this to proc if []
+            return self.validate_json(json_out, validation)
+        else:
+            return json_out
     
     def fix_json(self, json_str:str):
         """Uses the expected format of the JSON to fix potential errors, such as
@@ -163,7 +188,12 @@ class RAGModel(Model):
             dict : the fixed json as a dictionary.   
         """
 
-        words = self.extract_words(json_str) 
+        words = self.extract_words(json_str)
+        # add missing words:
+        expected_keys = ['name', 'latitude', 'longitude' ,'RAG_estimated']
+        if any([w not in words for w in expected_keys]):
+            words = self.add_missing_keys(words, expected_keys)
+        ### get the values for each of the expected keys
         place_name = self.get_word(words=words, 
                                    start_word='name', 
                                    stop_word='latitude')
@@ -177,11 +207,33 @@ class RAGModel(Model):
         bools = [w for w in words if w.lower() in ['true', 'false']] 
         
         return {"name":place_name, 
-                "latitude":latitude, 
-                "longitude":longitude, 
-                "RAG_estimated":bools[0]}  
+                "latitude":literal_eval(latitude), 
+                "longitude":literal_eval(longitude), 
+                "RAG_estimated":literal_eval(bools[0].capitalize())}  
 
-        
+    def add_missing_keys(self, words:list, expected_keys:list):
+        """Given a list of words taken as items from a dictionary and ordered as
+        [key, value, key, value,...], this function adds a [key, False] pair 
+        from expected keys if it does not already appear in words. The keys will
+        be added in the order they appear in expected_keys.
+        Args: 
+            words (list[str]) : A list of words structured as [key, value, ...].
+            expected (list[str]) : a list of keys expected to be in words in order.
+        Returns
+            list[str] the original list with expected keys added in postion.
+        """
+        i = 0
+        for key in expected_keys:
+            if key not in words:
+                # [key, False]
+                words.insert(i, key)
+                words.insert(i+1, 'False') 
+                # increase index by two
+                i+=2
+            i+=2
+        return words
+    
+    
     def extract_words(self, json_str:str)->list[str]:
         """Extracts the full words and +/- floats (inc. special characters, 
         periods, hyphens etc) from a json string. We're using quite a clunky 
@@ -193,7 +245,20 @@ class RAGModel(Model):
             list[str] : a list of full words in the json.
         """  
         # gets just the words, including hyphens, special characters etc
-        words_pattern = r'\b[\w\'\u00C0-\u017F]+(?:[-.\'][\w\u00C0-\u017F]+)*\b'
+        words_pattern = re.compile(r'''
+        # Match words including hyphens, apostrophes, and accented characters
+        (?:
+            \b[\w\u00C0-\u017F]+        # Word characters
+            (?:[-.\'][\w\u00C0-\u017F]+)* # Hyphens, periods, apostrophes
+        )
+        |
+        # Match numbers, including negative and decimal numbers
+        (?:
+            -?                          # Optional negative sign
+            \d+                         # digit(s)
+            (?:\.\d+)?                  # Optional decimal point digit(s)
+        )
+    ''', re.VERBOSE)
         words = re.findall(words_pattern, json_str) 
         return words
     
@@ -220,8 +285,31 @@ class RAGModel(Model):
         if stop_word:
             stop_idx = words.index(stop_word)
         place_words = words[start_idx+1:stop_idx]
-        place_name = ' '.join(place_words)
+        place_name = ' '.join([str(w) for w in place_words])
         return place_name
+    
+    def validate_json(self, json_dict:dict, matches:list[dict]):
+        """Checks if the geographic location described in json_dict exists in 
+        the list of locations in matches, to within 3 s.f. for lat/lon.
+        args:
+            json_dict (dict) : with 'latitude' and 'longitude' keys.
+            matches (list[dict]):  with 'latitude' and 'longitude' keys.
+        returns:
+            dict : as json_dict, with RAG_estimated=True if location in matches.    
+        """
+        # if matches is an empty list set RAG as False
+        if len(matches) == 0:
+            json_dict.update({'RAG_estimated':False})
+            return json_dict
+        # otherwise check for matching coordinates
+        rag=False
+        for m in matches:
+            d_lat = abs(float(m['lat'])-float(json_dict['latitude']))
+            d_lon = abs(float(m['lon'])-float(json_dict['longitude']))
+            if (d_lat <= 0.001) and (d_lon <= 0.001):
+                rag =True
+        json_dict.update({'RAG_estimated':rag}) 
+        return json_dict
         
         
 class TopoModel(Model):
@@ -234,8 +322,9 @@ class TopoModel(Model):
                  prompt_path:str, 
                  instruct_path:str, 
                  input_path:str, 
-                 config_path:dict):
-        init_args = model_name, prompt_path, instruct_path, input_path, config_path
+                 config_path:dict,
+                 test_mode:bool=False):
+        init_args = model_name, prompt_path, instruct_path, input_path, config_path, test_mode
         super().__init__(*init_args)    
            
     def toponym_prompt(self, text:str)->str:
@@ -266,7 +355,6 @@ class TopoModel(Model):
         except:
             output = self.fix_json(response)
         # validate the toponyms against the text
-        print(output)
         valid_toponyms = self.validate_toponyms(output['toponyms'], text)
         return {'toponyms':valid_toponyms}    
         
@@ -279,17 +367,16 @@ class TopoModel(Model):
             json_str (str) : the output json string.
         returns:
             dict [str, list] : a cleaned ouput.
-        
-        #TODO : I think this can be improved to be less arbritrary.
         """
-        # get the list part of the json_str
-        list_part = json_str.split('[')[1] 
-        # remove the closing ']}\n' from the json
-        if not list_part[-3:].isalpha():
-            list_part = list_part[:-3]
-        # split into list elements and clean
-        items = list_part.split(', ')
-        items = [item.strip('"').strip("'").strip() for item in items]
+        # get the list part of the json_str and split into list
+        list_part = json_str.split('["')[1] 
+        # we now want to get rid of any trailing non-alphanumerics
+        for i, item in enumerate(list_part[::-1]):
+            if item.isalpha() or item.isnumeric():
+                break
+        list_part = list_part[:-i]
+        # split into list elements
+        items = list_part.split('", "')
         # deduplicate
         unique_items = list(set(items))
         return {"toponyms":[t for t in unique_items if len(t) != 0]}
@@ -309,4 +396,39 @@ class TopoModel(Model):
                 valid_toponyms.append(toponym)
         return valid_toponyms
         
-             
+# Dummy models for testing
+class DummyModel:
+    
+    def __init__(self):
+        self.model_type=None
+    def generate(self, **kwargs):
+        if self.model_type == 'toponym':
+            return ["{'toponyms':['Paris', 'London', 'New York']}"]
+        elif self.model_type == 'RAG':
+            return ["[{'name':'Paris', 'latitude':-1.43, 'longitude':32.48},\
+                    {'name':'London','latitude':-0.45, 'longitude':48.3},\
+                    {'name':'New York', 'latitude':-94.34, 'longitue':'24.73'}]"]
+        else:
+            return ['input ### Response: default output <\out>']
+            
+
+class DummyTokenizer:
+    
+    def __init__(self):
+        self.eos_token = '<\out>'
+        
+    def __call__(self, text, **kwargs):
+        return DummyOutput()
+
+    def batch_decode(self, output):
+        return output
+ 
+class DummyOutput:
+       
+    def to(self, device):
+        return {}
+    
+
+    
+
+    

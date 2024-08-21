@@ -1,0 +1,9 @@
+You will be given a piece of text which contains some place names (toponyms). Please extract each toponyhm from the text and place it in a python list.
+
+Each toponym should only appear once in the list, even if they occur multiple times in the text. If multiple spellings of the same toponym appear in the text each spelling should be represented in the list.
+
+You should not consider adjectives (e.g. "English", "Iranian") as toponyms. Some toponyms may span multiple words.
+
+Please use the following template to structure your response:
+
+{"toponyms":["toponym_1", "toponym_2", "toponym_3",...]}
