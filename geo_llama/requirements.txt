@@ -12,5 +12,8 @@ tokenizers
 tqdm
 transformers
 numpy==1.26.4
+bitsandbytes==0.42.0
+trl
+peft
 # git installs
-unsloth[kaggle-new] @ git+https://github.com/unslothai/unsloth.git
+unsloth@ git+https://github.com/unslothai/unsloth.git

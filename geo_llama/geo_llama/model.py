@@ -5,9 +5,6 @@ import sys
 import os
 from ast import literal_eval
 from typing import Optional
-#PROJECT_PATH = os.getcwd()
-#TEST_PATH = os.path.join(PROJECT_PATH, "test")
-#sys.path.append(TEST_PATH)
 # third party imports
 # if running for testing then do not import Unsloth due to compatability issues
 try:

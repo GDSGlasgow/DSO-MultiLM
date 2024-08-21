@@ -4,7 +4,7 @@ Your task is to identify the matched location which is most likely to be the tru
 
 If the list of matches is empty, or you do not think any match accurately represents the toponym, you are permitted to assign your best estimate for a latitude and longitude. This should be highlighted in your response by setting {"RAG":false}.
 
-Your output should strictly conform to the following tmeplate:
+Your output should strictly conform to the following template:
 
 {"name" : <(str) name of toponym as it appears in the text>,
  "latitude": <(float) latitude as it appears in the matched locations>,

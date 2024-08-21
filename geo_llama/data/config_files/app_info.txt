@@ -1,0 +1,17 @@
+    # GeoLlama
+
+    Welcome to the GeoLlama App! This interface uses the Llama-3 based GeoLlama model to identify and geolocate place names within a piece of text. The models can handle text in multiple languages, and will even translate the provided text if required.
+
+    For a text of ~200 words the model will take around 20-30 seconds to run without translation. Translation adds a further ~30 seconds.
+
+    - **Geoparse with Translation**: The text is translated to English before geoparsing.
+    - **Geoparse without Translation**: The text is processed in its original language (recommended).
+
+
+    ## Instructions
+    1. Enter the text you want to geoparse in the textbox below.
+    2. Choose whether you want to translate the text or not.
+    3. The app will return either the original or translated text with place names highlighted, and a map showing the identified locations. 
+    4. Hover over the highlighted text (or map locations) to see the place name and the coordinates. Tooltip place names are shown in English, regardless of whether the text has been translated.
+
+    **Note**: The application may take a few seconds to process longer texts.
