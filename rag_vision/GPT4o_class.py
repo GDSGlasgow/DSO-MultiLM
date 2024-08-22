@@ -46,8 +46,8 @@ class GPT4o:
 
         # Load the embeddings and coordinates from the pickle file
         with open('', 'rb') as f: # Enter the path to the pickle file
-            self.MP_16_Embeddings = pickle.load(f)
-            self.locations = [value['location'] for key, value in self.MP_16_Embeddings.items()]
+            self.Embeddings = pickle.load(f)
+            self.locations = [value['location'] for key, value in self.Embeddings.items()]
 
         # Load the Faiss index
         index2 = faiss.read_index("") # Enter the path to the Faiss index file
