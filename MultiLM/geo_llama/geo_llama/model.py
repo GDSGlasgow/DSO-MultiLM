@@ -410,6 +410,18 @@ class DummyModel:
                     {'name':'New York', 'latitude':-94.34, 'longitue':'24.73'}]"]
         else:
             return ['input ### Response: default output <\out>']
+        
+    def get_output(self, **kwargs):
+        out_str = self.generate()
+        out_str = out_str.replace("'", '"')
+        #print(out_str)
+        return json.loads(out_str)
+    
+    def geoparse_prompt(self, **kwargs):
+        return {'text':'test_text'}
+    
+    def toponym_prompt(self, **kwargs):
+        return {'text':'test_text'}
             
 
 class DummyTokenizer:

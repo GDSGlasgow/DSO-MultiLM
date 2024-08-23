@@ -129,16 +129,37 @@ class Gazetteer:
         """
         out = []
         for m in response:
-            address1 = m['name'] 
+            address1 = m.get('name', '')
             address2 = m.get('adminName1', '')
             address3 = m.get('countryName', '')
             address = ', '.join([address1, address2, address3])
             
-            out.append({'name':m['name'],
-                        'lat':m['lat'],
-                        'lon':m['lng'],
+            out.append({'name':m.get('name', ''),
+                        'lat':m.get('lat', ''),
+                        'lon':m.get('lng',''),
                         'display_name':address
                         })
         return out
+    
+### Dummy Gazetteer for testing
+
+class DummyGazetteer:
+    
+    def __init__(self):
+        pass
+    
+    def query(*args):
+        out_1 = {'name':'name_1',
+                 'lat':0,
+                 'lon':0,
+                 'display_name':'display_name_1'}
+        
+        out_2 = {'name':'name_2',
+                 'lat':0,
+                 'lon':0,
+                 'display_name':'display_name_2'}
+        
+        return [out_1, out_2]
+    
     
     

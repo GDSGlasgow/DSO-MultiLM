@@ -5,13 +5,10 @@ import plotly.graph_objects as go
 
 """A few functions to produce the output maps"""
 
-def plot_map(json_locations, translate_cache=None):
+def plot_map(json_locations, translate_cache):
     df = pd.DataFrame(json_locations)
     mapbox = get_mapbox(df)
-    if translate_cache:
-        name_list = [translate_cache[n] for n in df['name'].tolist()]
-    else:
-        name_list = df['name'].to_list()
+    name_list = [translate_cache[n] for n in df['name'].tolist()]
 
     fig = go.Figure(go.Scattermapbox(
                 customdata=name_list,

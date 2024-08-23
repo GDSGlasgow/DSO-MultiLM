@@ -77,8 +77,9 @@ class GeoLlama:
         Returns:
             list[str] : a list of unique toponyms in the text
         """
-        prompt = self.topo_model.toponym_prompt(text)
-        output = self.topo_model.get_output(prompt['text'], text)
+        prompt = self.topo_model.toponym_prompt(text=text)
+        output = self.topo_model.get_output(prompt=prompt['text'], 
+                                            validation_data=text)
         return output['toponyms']
     
     def get_matches(self, toponym:str):
@@ -106,7 +107,7 @@ class GeoLlama:
         rag_prompt = self.rag_model.geoparse_prompt(toponym=toponym, 
                                                     text=text, 
                                                     matches=matches)
-        output=self.rag_model.get_output(rag_prompt['text'],
+        output=self.rag_model.get_output(prompt=rag_prompt['text'],
                                          validation_data=matches)
         return output
         
