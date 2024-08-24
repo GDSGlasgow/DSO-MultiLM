@@ -2,15 +2,16 @@ import gradio as gr
 import numpy as np
 import torch
 import folium
+import os
+import sys
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.dirname(SCRIPT_DIR))
 from io import BytesIO
-from GPT4o_class import GPT4o
+from rag_vision.GPT4o_class import GPT4o
 
-# Initialize the GPT4v2Loc object
 geo_locator = GPT4o(device="cuda" if torch.cuda.is_available() else "cpu")
-
-
 # Function to handle the main processing logic
-def process_image(uploaded_file, openai_api_key, num_nearest_neighbors, num_farthest_neighbors):
+def process_image(uploaded_file, openai_api_key, num_nearest_neighbors, num_farthest_neighbors, context_text=None):
     if not openai_api_key:
         return "Please add your API key to continue.", None
 
@@ -23,7 +24,8 @@ def process_image(uploaded_file, openai_api_key, num_nearest_neighbors, num_fart
         imformat='jpeg',
         use_database_search=True,  # Assuming you want to use the nearest/farthest neighbors
         num_neighbors=num_nearest_neighbors,
-        num_farthest=num_farthest_neighbors
+        num_farthest=num_farthest_neighbors,
+        context_text=context_text
     )
 
     # Get the location from the OPENAI API
@@ -96,35 +98,41 @@ def map_to_html(map_obj):
     """
     return map_obj._repr_html_()
 
+def main():
+    # Gradio Interface
+    with gr.Blocks() as vision_app:
+        with gr.Row():
+            with gr.Column():
+                uploaded_file = gr.Image(label="Upload an image")
+                openai_api_key = gr.Textbox(label="API Key", placeholder="xxxxxxxxx", type="password")
 
-# Gradio Interface
-with gr.Blocks() as vision_app:
-    with gr.Row():
-        with gr.Column():
-            uploaded_file = gr.Image(label="Upload an image")
-            openai_api_key = gr.Textbox(label="API Key", placeholder="xxxxxxxxx", type="password")
+                with gr.Accordion("Advanced Options", open=False):
+                    num_nearest_neighbors = gr.Number(label="Number of nearest neighbors", value=16)
+                    num_farthest_neighbors = gr.Number(label="Number of farthest neighbors", value=16)
 
-            with gr.Accordion("Advanced Options", open=False):
-                num_nearest_neighbors = gr.Number(label="Number of nearest neighbors", value=16)
-                num_farthest_neighbors = gr.Number(label="Number of farthest neighbors", value=16)
+                submit = gr.Button("Submit")
 
-            submit = gr.Button("Submit")
+            with gr.Column():
+                status = gr.Textbox(label="Predicted Location")
+                maps_display = gr.HTML(label="Generated Maps")  # Using HTML for correct map rendering
 
-        with gr.Column():
-            status = gr.Textbox(label="Predicted Location")
-            maps_display = gr.HTML(label="Generated Maps")  # Using HTML for correct map rendering
+        submit.click(
+            process_image,
+            inputs=[
+                uploaded_file,
+                openai_api_key,
+                num_nearest_neighbors,
+                num_farthest_neighbors
+            ],
+            outputs=[status, maps_display]
+        )
 
-    submit.click(
-        process_image,
-        inputs=[
-            uploaded_file,
-            openai_api_key,
-            num_nearest_neighbors,
-            num_farthest_neighbors
-        ],
-        outputs=[status, maps_display]
-    )
-
-vision_app.launch()
+    vision_app.launch()
+    
+if __name__ == '__main__':
+        
+    # Initialize the GPT4v2Loc object
+    geo_locator = GPT4o(device="cuda" if torch.cuda.is_available() else "cpu")
+    main()
 
 

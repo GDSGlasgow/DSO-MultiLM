@@ -50,7 +50,7 @@ class GPT4o:
             self.locations = [value['location'] for key, value in self.MP_16_Embeddings.items()]
 
         # Load the Faiss index
-        index2 = faiss.read_index("") # Enter the path to the Faiss index file
+        index2 = faiss.read_index("drive/MyDrive/colab_data/RAG_data/StreetCLIP_1m_merged.bin") # Enter the path to the Faiss index file
         self.gpu_index = index2
 
     def read_image(self, image_path):
@@ -111,7 +111,7 @@ class GPT4o:
             raise ValueError(f"Error encoding image: {e}")
 
     def set_image_app(self, file_uploader, imformat: str = 'jpeg', use_database_search: bool = False,
-                      num_neighbors: int = 16, num_farthest: int = 16) -> None:
+                      num_neighbors: int = 16, num_farthest: int = 16, context_text=None) -> None:
         """
         Sets the image for the class by encoding it to Base64.
         Args:
@@ -139,6 +139,9 @@ class GPT4o:
 
         # Encode the image to Base64
         self.base64_image = self.encode_image(img_array, imformat)
+        
+        # set the context text
+        self.context_text = context_text
 
     def create_payload(self, question: str) -> dict:
         """
@@ -196,6 +199,13 @@ class GPT4o:
                 For your reference, these are locations of some similar images {self.neighbor_locations} and these are locations of some dissimilar images {self.farthest_locations} that should be far away.'''
             else:
                 self.question = "Suppose you are an expert in geo-localization. Please analyze this image and give me a guess of the location. Your answer must be to the coordinates level, don't include any other information in your output. You can give me a guessed answer."
+            
+            if self.context_text:
+                self.question += f"""\nThe image was accompanied by the following text. This might be a caption, comment or news article associated with the image. 
+                If appropriate, use the information in the text to help inform your image-geolocation estimation.
+                Text:
+                {self.context_text}
+                """
 
             # Create the payload and the headers for the API request
             payload = self.create_payload(self.question)

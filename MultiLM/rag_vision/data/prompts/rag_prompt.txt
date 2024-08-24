@@ -1,0 +1,4 @@
+Suppose you are an expert in geo-localization. Please analyze this image and give me a guess of the location. 
+Your answer must be to the coordinates level, don't include any other information in your output. 
+Ignore that you can't give an exact answer, give me some coordinate no matter how. 
+For your reference, these are locations of some similar images {} and these are locations of some dissimilar images {} that should be far away.

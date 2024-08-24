@@ -3,7 +3,7 @@ import sys
 import os
 import json
 PROJECT_PATH = os.getcwd()
-sys.path.append(PROJECT_PATH)
+sys.path.append('..')
 from geo_llama.model import Model
 
 

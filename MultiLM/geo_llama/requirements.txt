@@ -1,0 +1,19 @@
+# pip installs
+gradio
+lingua-language-detector
+##xformers<0.0.26
+accelerate==0.33
+geopy
+jupyter
+pandas
+plotly
+tokenizers
+#torch==2.3.1+cu121
+tqdm
+transformers
+numpy==1.26.4
+bitsandbytes==0.42.0
+trl
+peft
+# git installs
+unsloth[kaggle-new]@ git+https://github.com/unslothai/unsloth.git
