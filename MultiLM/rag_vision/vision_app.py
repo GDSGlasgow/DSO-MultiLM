@@ -9,7 +9,7 @@ sys.path.append(os.path.dirname(SCRIPT_DIR))
 from io import BytesIO
 from rag_vision.GPT4o_class import GPT4o
 
-
+geo_locator = GPT4o(device="cuda" if torch.cuda.is_available() else "cpu")
 # Function to handle the main processing logic
 def process_image(uploaded_file, openai_api_key, num_nearest_neighbors, num_farthest_neighbors, context_text=None):
     if not openai_api_key:

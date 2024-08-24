@@ -412,7 +412,7 @@ class DummyModel:
             return ['input ### Response: default output <\out>']
         
     def get_output(self, **kwargs):
-        out_str = self.generate()
+        out_str = self.generate()[0]
         out_str = out_str.replace("'", '"')
         #print(out_str)
         return json.loads(out_str)

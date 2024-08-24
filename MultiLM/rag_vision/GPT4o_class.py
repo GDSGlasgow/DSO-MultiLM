@@ -141,7 +141,7 @@ class GPT4o:
         self.base64_image = self.encode_image(img_array, imformat)
         
         # set the context text
-        self.context_text = conext_text
+        self.context_text = context_text
 
     def create_payload(self, question: str) -> dict:
         """

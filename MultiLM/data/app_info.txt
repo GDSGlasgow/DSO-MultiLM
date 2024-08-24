@@ -1,0 +1,32 @@
+# Multi-LM
+
+## Multi-Modal, Multi-Lingual location estimation
+
+Welcome to the Multi-LM App! This interface uses the GeoLlama mutli-lingual text based-geoparsing model and a GPT-4 RAG-based vision model to estimate locations in textual and image data.
+
+## Instructions
+
+### Image Geocoding
+
+The image model uses a Retieval Augmented Generation approach to estimate the location of an image. To do this, the image is processed by a CLIP-based vision model, producing a vector embedding. We then search our embedding database of 5 million images to find the most similar and most disimilar images. The geo-locations of our most and least similar images are then given to GPT-4, along with our original image, and the model is asked to estimate a geolocation for the original image. Users also have the option to include any text accompanying the image to help inform GPT-4's inference.
+
+**Steps:**
+* Upload the image you want to estimate.
+* Add an API-Key for the OpenAI API.
+* In the advanced options, select the number of similar and disimilar images to include, and select whether the accompanying text should be used by the model.
+
+### Text Geoparsing
+
+The text model uses GeoLlama, a two-stage toponym extraction and retrieval based toponym resolution model. As the core model is a fine-tuned version of Llama-3.1, the app has inherent multi-lingual capabilities. However, if required, the app will also use the M2M100 translation model to translate the input text before geoparsing. Note though, the model will still work without translation, even if the original language is not english.
+
+**Options:**
+- **Geoparse with Translation**: The text is translated to English before geoparsing.
+- **Geoparse without Translation**: The text is processed in its original language (recommended - even for non-english text).
+
+**Steps:**
+1. Enter the text you want to geoparse in the textbox below.
+2. Choose whether you want to translate the text or not.
+3. The app will return either the original or translated text with place names highlighted, and a map showing the identified locations. 
+4. Hover over the highlighted text (or map locations) to see the place name and the coordinates. Tooltip place names are shown in English, regardless of whether the text has been translated.
+
+**Note**: The application may take a few seconds to process longer texts, particularly if there are multiple toponyms. Translation will also add more time.
