@@ -12,6 +12,7 @@ This software package provides a tool for geo-location of image and textual data
 
  Included in the `geo_llama` folder is all the source code required to produce the fine-tuned models using the `unsloth` package, and the data required for fine-tuning and testing. Notebooks detailing the fine-tuning and testing processes are within the `multi-lm/geo_llama/notebooks` folder.
 
+
  ### Vision-RAG image geocoding
  A RAG based pipeline which uses a Vision Language Model (VLM) to estimate location from images. The model produces an embedding for a given image, which is then compared to an embedding database of geo-tagged images. The geo-tags of the most similar and most dissimilar images are then extracted and used to help construct the prompt for the VLM. Optionally, text accompanying the image can also be included in the prompt to aid inference. 
 
@@ -20,19 +21,19 @@ This software package provides a tool for geo-location of image and textual data
 ## System Requirements
 The GeoLlama model is run locally and requires 12 GB of GPU RAM on a Linux OS. The model requires access to the internet to retrieve information from the OpenStreetMaps API.
 
-The Vision-RAG model requires the use of an Open-AI API key and access to the embeddings dataset and required at least 15GB of system RAM. 
+The Vision-RAG model requires the use of an Open-AI API key and access to the embeddings dataset and required at least 20GB of system RAM if sing the full 5M embedding database. 
 
 ## Installation
 The package and all its dependencies can be installed from command line:
 ```$ python setup.py install```
 
-Please see `requiremnets.txt` for a full list of system requiremnets.
+Please see `requiremnets.txt` for a full list of system requirements.
 
 ## Usage
-The package is currently set up to use a Gradio environment UI. This can be accessed through:
+The package uses a Gradio UI. This can be launched by running:
 ```$ python multi_lm/app.py```
 
-Instruction for running the app are provided on launch. A flagging system has been implented to store information for when the app fails to predict locations accurately. These are saved in `flagged_images` and `flagged_text`. 
+Instructions for using the app are provided on launch. A flagging system has been implemented to store information for when the app fails to predict locations accurately. These are saved in `flagged_images` and `flagged_text` folders. 
 
 ## Testing
 Tests for the GeoLlama are available and are currently running OK. The Vision-RAG model does not include unittests yet.
