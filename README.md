@@ -30,6 +30,8 @@ The package and all its dependencies can be installed from command line:
 Please see `requiremnets.txt` for a full list of system requirements.
 
 ## Usage
+Before use, a path to the embedding databases must be added to `multi_lm/rag_vision/GPT4o_class.py`. The global variables `DATABASE_PKL` and `DATABASE_BIN` should provide paths to a `.pkl` and a `.bin` version of the database, respectively. 
+
 The package uses a Gradio UI. This can be launched by running:
 ```$ python multi_lm/app.py```
 

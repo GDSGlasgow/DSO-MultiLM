@@ -1,12 +1,15 @@
-import gradio as gr
-import numpy as np
-import torch
-import folium
+# standard library
+from io import BytesIO
 import os
 import sys
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(SCRIPT_DIR))
-from io import BytesIO
+# third party imports
+import gradio as gr
+import torch
+import folium
+
+
 from rag_vision.GPT4o_class import GPT4o
 
 geo_locator = GPT4o(device="cuda" if torch.cuda.is_available() else "cpu")
