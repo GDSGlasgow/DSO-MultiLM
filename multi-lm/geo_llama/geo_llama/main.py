@@ -1,13 +1,17 @@
 # standard library imports
-# standard library imports
 from datetime import datetime
+import random
 import os
 import sys
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(SCRIPT_DIR))
 sys.path.append('.')
+# third party imports
+from geopy.distance import distance
+from geopy.geocoders import Nominatim
 # local imports
 from geo_llama.gazetteer import Gazetteer 
+from geo_llama.plotting import plot_map
 
 """Uses the GeoLlama3-8b-toponym and GeoLlama3-7b-RAG models to extract and
 geolocate toponyms from English text.
@@ -25,6 +29,7 @@ class GeoLlama:
     def __init__(self,
                  topo_model, 
                  rag_model, 
+                 translate_model,
                  gazetteer_source='nominatim',
                  geonames_username=None):
         """A class to handle the full geoparsing pipeline.
@@ -32,6 +37,7 @@ class GeoLlama:
         Args:
             topo_model (geo_llama.model.TopoModel): the TopoModel object.
             rag_model (geo_llama.model.RAGModel): the RAGModel object.
+            translate_model (geo_llama.translator.Translator): translation.
             gazetteer_source (str, optional): The API used to find matches. Can 
                 be 'nominatim' or 'geonames'. Defaults to 'nominatim'.
             geonames_username (_type_, optional): Required if using geonames as
@@ -39,6 +45,7 @@ class GeoLlama:
         """
         self.topo_model = topo_model
         self.rag_model = rag_model
+        self.translator = translate_model
         self.gazetteer = Gazetteer(gazetteer_source=gazetteer_source, 
                                    geonames_username=geonames_username)
         
@@ -84,9 +91,9 @@ class GeoLlama:
     
     def get_matches(self, toponym:str):
         user_agent = f'GeoLLama_req_{datetime.now().isoformat()}'
-        print(toponym)
+        #print(toponym)
         raw_matches = self.gazetteer.query(toponym,user_agent)
-        print(raw_matches)
+        #print(raw_matches)
         out = []
         for m in raw_matches:
             out.append({'name':m['name'], 
@@ -111,6 +118,85 @@ class GeoLlama:
                                          validation_data=matches)
         return output
         
+    def translate(self, text):
+        out = self.translator.translate(text, out_lang='en')
+        return out
+
+
+    def translate_name(self, name, coordinates):
+        """We can't use the translator for the name because it tends to literally
+        translate rather than preserve place names. Instead, we'll look the place up
+        in Nominatim and return the english name of the first match.
+        
+        args:
+            name (str) : the name of the toponym in the original language.
+            coordinates (tuple[float,float]) : the location predicted by GeoLlama.
+        returns:
+            str : English name of cloasest location in Nominatim.
+        """
+        user_id = f'GeoLlama_{random.uniform(1000,10000)}'
+        nom = Nominatim(user_agent=f'Geo-Llama_{user_id}')
+        matches = nom.geocode(name, language='en', exactly_one=False)
+        # get the match which is closest to the provided coordinates
+        try:
+            best = matches[0]
+        except:
+            return name + ' (unable to translate place name)'
+        best_d = distance((best.latitude, best.longitude), coordinates)
+        for m in matches:
+            d = distance((m.latitude, m.longitude), coordinates)
+            # check if best match
+            if d < best_d:
+                best = m
+                best_d = d
+        try:
+            return best.address.split(',')[0]
+        except IndexError as e:
+            return name + ' (unable to translate place name)'
+
+
+    def geoparse_pipeline(self, text:str, translation_option='With Translation'):
+        """Uses the GeoLlama pipeline to geoparse to translate and geoparse the
+        proivided text, and provide the output as processed HTML text with a 
+        plotly map.
+        
+        args:
+            text (str) : the text to be geoparsed.
+            translation_option (str) : either 'With Translation' or 'Without Translation"
+        return:
+            tuple[str, str, plotly.map]
+        """
+        # translate text if required
+        if translation_option=='With Translation':
+            translated_text = self.translate(text)
+            processed_text = translated_text['translation']
+        else:
+            processed_text = text
+
+        # geoparse
+        locations = self.geoparse(processed_text)
+        # Create an HTML string with highlighted place names and tooltips
+        translate_cache = {}
+        for loc in locations:
+            lat, lon = loc['latitude'], loc['longitude']
+            # if the text has been translated, we don't need to translate the name
+            if translation_option == 'With translation':
+                name = loc['name']
+            # if no translation we still want toponyms translated. Check cache first.
+            elif loc['name'] in translate_cache.keys():
+                name = translate_cache[loc['name']]
+            # otherwise use translate_name()
+            else:
+                name = self.translate_name(loc['name'], (lat, lon))
+                translate_cache.update({loc['name']:name})
+            # Creating a tooltip for the place name with coordinates
+            tooltip_html = f'<span style="background-color: yellow;" title="Toponym: {name} \n Coordinates: ({lat}, {lon})">{loc["name"]}</span>'
+            processed_text = processed_text.replace(loc['name'], tooltip_html)
+
+        # Generate the map plot
+        mapped = plot_map(locations, translate_cache)
+
+        return processed_text, mapped
         
     
 

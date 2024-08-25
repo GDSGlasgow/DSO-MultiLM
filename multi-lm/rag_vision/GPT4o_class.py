@@ -1,25 +1,21 @@
-import cv2
-import base64
+# standard library imports
+import os
 import requests
-from tqdm import tqdm
+import pickle
+import base64
 from requests.exceptions import RequestException
-from PIL import Image
-from transformers import CLIPModel, CLIPProcessor
+# third party imports
+import cv2
 import torch
 import faiss
-import pickle
-import numpy as np
-import pandas as pd
-from geopy.distance import geodesic
-from transformers import AutoTokenizer, BitsAndBytesConfig
 import torch
-from PIL import Image
-import requests
-from io import BytesIO
-import os
+from transformers import CLIPModel, CLIPProcessor
+import numpy as np
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
+DATABASE_PKL = '' # path to embedding database .pkl file 
+DATABASE_BIN = '' # path to embedding database .bin file
 
 class GPT4o:
     """
@@ -45,12 +41,12 @@ class GPT4o:
         self.model.to(self.device)
 
         # Load the embeddings and coordinates from the pickle file
-        with open('', 'rb') as f: # Enter the path to the pickle file
+        with open(DATABASE_PKL, 'rb') as f: # Enter the path to the pickle file
             self.MP_16_Embeddings = pickle.load(f)
             self.locations = [value['location'] for key, value in self.MP_16_Embeddings.items()]
 
         # Load the Faiss index
-        index2 = faiss.read_index("drive/MyDrive/colab_data/RAG_data/StreetCLIP_1m_merged.bin") # Enter the path to the Faiss index file
+        index2 = faiss.read_index(DATABASE_BIN)
         self.gpu_index = index2
 
     def read_image(self, image_path):

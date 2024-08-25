@@ -285,8 +285,8 @@ class TestTopoModel(unittest.TestCase):
         
     def test_validate_json_location_in_matches(self):
         json_dict = {'latitude':0, 'longitude':0}
-        matches = [{'latitude':40, 'longitude':22}, 
-                   {'latitude':0.0001, 'longitude':0.0001}]
+        matches = [{'lat':40, 'lon':22}, 
+                   {'lat':0.0001, 'lon':0.0001}]
         expected = {'latitude':0, 'longitude':0, 'RAG_estimated':True}
         out = self.model.validate_json(json_dict, matches)
         msg = "Function does not set RAG_estimated=True if location in matches."
@@ -294,8 +294,8 @@ class TestTopoModel(unittest.TestCase):
     
     def test_validate_json_location_not_matches(self):
         json_dict = {'latitude':0, 'longitude':0}
-        matches = [{'latitude':40, 'longitude':22}, 
-                   {'latitude':0.01, 'longitude':0.01}]
+        matches = [{'lat':40, 'lon':22}, 
+                   {'lat':0.01, 'lon':0.01}]
         expected = {'latitude':0, 'longitude':0, 'RAG_estimated':False}
         out = self.model.validate_json(json_dict, matches)
         msg = "Function does not set RAG_estimated=True if location not in matches"
