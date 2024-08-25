@@ -100,3 +100,7 @@ We have tested the framework with the Neva22b VLM and the GPT-4o VLM, and compar
 | Country ($\leq$ 750km)   | 0.539   | 0.609  | 0.697   | 0.589        | 0.724  |
 | Continent ($\leq$ 2000km)| 0.724   | 0.771  | 0.838   | 0.801        | 0.853  |
 
+## Contributors
+Joe Shingleton (GeoLlama, User Interface, Design)
+Yunus Serhat Bicakci (RAG-Vision, User Interface, Design)
+Yu Wang (Data, Methodology)
