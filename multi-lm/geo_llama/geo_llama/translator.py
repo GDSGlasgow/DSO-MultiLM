@@ -20,6 +20,8 @@ class Translator:
             model_str (str, optional): The model being used. Can be '418M' or 
             '1.2B'. Defaults to '418M'.
         """
+        self.test_mode = test_mode
+        
         if languages:
             self.languages = [getattr(Language, l.upper()) for l in languages]
         else:
@@ -27,7 +29,6 @@ class Translator:
         
         self.detector = self.get_detector()
         
-        self.test_mode = test_mode
         if self.test_mode:
             self.model_str = 'test_model'
             self.model = DummyTranslator()
