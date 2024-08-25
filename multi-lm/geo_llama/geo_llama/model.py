@@ -414,7 +414,6 @@ class DummyModel:
     def get_output(self, **kwargs):
         out_str = self.generate()[0]
         out_str = out_str.replace("'", '"')
-        #print(out_str)
         return json.loads(out_str)
     
     def geoparse_prompt(self, **kwargs):

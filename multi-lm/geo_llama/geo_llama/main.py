@@ -91,9 +91,9 @@ class GeoLlama:
     
     def get_matches(self, toponym:str):
         user_agent = f'GeoLLama_req_{datetime.now().isoformat()}'
-        print(toponym)
+        #print(toponym)
         raw_matches = self.gazetteer.query(toponym,user_agent)
-        print(raw_matches)
+        #print(raw_matches)
         out = []
         for m in raw_matches:
             out.append({'name':m['name'], 

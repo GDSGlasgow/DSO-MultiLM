@@ -5,17 +5,21 @@ sys.path.append('..')
 from geo_llama.model import DummyModel
 from geo_llama.gazetteer import DummyGazetteer
 from geo_llama.main import GeoLlama
+from geo_llama.translator import DummyTranslator
 
 
 class TestGeoLlama(unittest.TestCase):
     
     def setUp(self):
         self.topo_model = DummyModel()
-        self.topo_model.type='toponym'
+        self.topo_model.model_type='toponym'
         self.rag_model = DummyModel()
-        self.rag_model.type='RAG'
+        self.rag_model.model_type='RAG'
+        self.translator = DummyTranslator()
         
-        self.geo_llama=GeoLlama(self.topo_model, self.rag_model)
+        self.geo_llama=GeoLlama(self.topo_model, 
+                                self.rag_model, 
+                                translate_model=self.translator)
         # set the gazetteer to a dummy for testing
         self.geo_llama.gazetteer = DummyGazetteer()
     
@@ -25,9 +29,11 @@ class TestGeoLlama(unittest.TestCase):
     def test_initialized(self):
         geo_llama_nom = GeoLlama(self.topo_model, 
                                  self.rag_model, 
+                                 translate_model=self.translator,
                                  gazetteer_source='nominatim')
         geo_llama_gnm = GeoLlama(self.topo_model, 
                                  self.rag_model,
+                                 translate_model=self.translator,
                                  gazetteer_source='geonames')
         self.assertEqual(geo_llama_nom.gazetteer.gazetteer_source, 'nominatim')
         self.assertEqual(geo_llama_gnm.gazetteer.gazetteer_source, 'geonames')
@@ -66,9 +72,6 @@ class TestGeoLlama(unittest.TestCase):
         response = self.geo_llama.get_toponyms(text='test')
         expected = ['Paris', 'London', 'New York']
         self.assertCountEqual(response, expected)
-        
-    
-    
         
 if __name__=='__main__':
     unittest.main()

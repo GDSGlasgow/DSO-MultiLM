@@ -2,11 +2,11 @@
 from transformers import M2M100ForConditionalGeneration, M2M100Tokenizer
 from lingua import LanguageDetectorBuilder, Language
 from tqdm import tqdm
-from typing import Optional
+from typing import Any, Optional
 
 class Translator:
     
-    def __init__(self, languages:list=None, model_size:str='418M'):
+    def __init__(self, languages:list=None, model_size:str='418M', test_mode=False):
         """Detects and translates text into a required language, using the
         M2M100 model and the Lingua package. If the language is being detected
         from a pool of possible languages these can be stated to improve
@@ -26,8 +26,14 @@ class Translator:
             self.languages = None
         
         self.detector = self.get_detector()
-        self.model_str = f'facebook/m2m100_{model_size}'
-        self.model =  M2M100ForConditionalGeneration.from_pretrained(self.model_str)
+        
+        self.test_mode = test_mode
+        if self.test_mode:
+            self.model_str = 'test_model'
+            self.model = DummyTranslator()
+        else:
+            self.model_str = f'facebook/m2m100_{model_size}'
+            self.model =  M2M100ForConditionalGeneration.from_pretrained(self.model_str)
         
     def get_detector(self)-> LanguageDetectorBuilder:
         """Retrieves the language detection model. If a list of potential
@@ -37,6 +43,9 @@ class Translator:
         Returns:
             LanguageDetectorBuilder: initialised laguage detection model.
         """
+        if self.test_mode:
+            return DummyLanguageDetector()
+        
         if self.languages:
             detector = LanguageDetectorBuilder.from_iso_codes_639_1(*self.languages)
         else:
@@ -84,6 +93,9 @@ class Translator:
         Returns:
             M2M100Tokenizer: _description_
         """
+        if self.test_mode:
+            self.tokenizer = DummyTokenizer()
+            return
         try:
             self.tokenizer =  M2M100Tokenizer.from_pretrained(self.model_str, 
                                                               src_lang=self.src_lang)
@@ -104,3 +116,27 @@ class Translator:
         """
         lang = self.detector.detect_language_of(text)
         return lang.iso_code_639_1.name.lower()
+    
+### Dummy models for testing
+
+class DummyTranslator:
+    
+    def generate(*args, **kwargs):
+        return ['out_token_1', 'out_token_2']
+    
+class DummyTokenizer:
+    
+    def __call__(**kwargs):
+        return ['out_token_1', 'out_token_2']
+    
+    def batch_decode(in_tokens, **kwargs):
+        return in_tokens
+    
+    def get_lang_id(in_lang, **kwargs):
+        return in_lang
+    
+class DummyLanguageDetector:
+    
+    def detect_language_of():
+        return 'la'
+    

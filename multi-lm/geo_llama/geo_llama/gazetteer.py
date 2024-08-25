@@ -66,8 +66,44 @@ class Gazetteer:
         elif self.gazetteer_source.lower() == 'geonames':
             if not self.username:
                 raise ValueError('Please provide username for GeoNames query')
-            return self._geonames_query(query, self.username)
+            return self._geonames_query(query)
         
+    def build_url(self, query:str)->str:
+        if self.gazetteer_source.lower()=='nominatim':
+            return self._build_nominatim_url(query)
+        elif self.gazetteer_source.lower()=='geonames':
+            return self._build_geonames_url(query)
+        
+    def _build_nominatim_url(self, query:str)->str:
+        """Build a url for the Nominatim API.
+
+        Args:
+            query (str): the query (usually a toponym) being searched.
+
+        Returns:
+            str: a url for the api call.
+        """
+        formatted_query = urllib.parse.quote(query) 
+        url = self.base_url + f'search?q={formatted_query}&format=json'
+        url += '&accept-language=en'
+        return url
+    
+    def _build_geonames_url(self, query:str)->str:
+        """Builds a url for requests to the GeoNames api.
+
+        Args:
+            query (str):the query being searched
+
+        Returns:
+            str: a url for the request
+        """
+        formatted_query = urllib.parse.quote(query) 
+        url = self.base_url + f'searchJSON?q={formatted_query}' 
+        url += f'&username={self.username}'
+        url += '&orderby=relevance'
+        url += '&maxRows=20'
+        return url
+              
     def _nominatim_query(self, query:str, user_agent:str)->list:
         """Searches Nominatim for the required location, returning a json 
         formatted list. See the Nominatim documentation for more info on this.
@@ -78,9 +114,7 @@ class Gazetteer:
         returns:
             list[dict] : A json formatted list of all matches on Nominatim. 
         """
-        formatted_query = urllib.parse.quote(query) 
-        url = self.base_url + f'search?q={formatted_query}&format=json'
-        url += '&accept-language=en'
+        url = self.build_url(query)
         headers={'User-agent':user_agent}
         try:
             # Adjust the timeout as needed
@@ -104,12 +138,7 @@ class Gazetteer:
         returns:
             list[dict] : A json formatted list of all matches on Nominatim. 
         """
-        formatted_query = urllib.parse.quote(query) 
-        url = self.base_url + f'searchJSON?q={formatted_query}' 
-        url += f'&username={self.username}'
-        url += '&orderby=relevance'
-        url += '&maxRows=20'
-
+        url = self.build_url(query)
         try:
             # Adjust the timeout as needed
             r = self.session.get(url, timeout=10)  
@@ -121,7 +150,7 @@ class Gazetteer:
         
         except requests.RequestException as e:
             print(f"Error during GeoNames query: {e}")
-            return {'geonames':[]}
+            return []
         
     def format_geonames_response(self, response):
         """Reformats the geonames response to be structured more like a 
@@ -132,7 +161,8 @@ class Gazetteer:
             address1 = m.get('name', '')
             address2 = m.get('adminName1', '')
             address3 = m.get('countryName', '')
-            address = ', '.join([address1, address2, address3])
+            address_list = [a for a in [address1, address2, address3] if a]
+            address = ', '.join(address_list)
             
             out.append({'name':m.get('name', ''),
                         'lat':m.get('lat', ''),

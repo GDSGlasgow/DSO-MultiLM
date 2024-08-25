@@ -38,7 +38,12 @@ The package uses a Gradio UI. This can be launched by running:
 Instructions for using the app are provided on launch. A flagging system has been implemented to store information for when the app fails to predict locations accurately. These are saved in `flagged_images` and `flagged_text` folders. 
 
 ## Testing
-Tests for the GeoLlama are available and are currently running OK. The Vision-RAG model does not include unittests yet.
+Tests for the GeoLlama are available and are currently running OK. Tests have been written for all the main component objects required to run the app, except for the map plotting functions. The classes in `data.py` do not have tests, but are mainly used for model assessment and not for running the app.
+
+GeoLlama tests can be run by navigating to the `geo_llama` directory and running:
+```$ python -m unittest```
+
+The Vision-RAG model does not include unittests yet.
 
 ## Results
 
