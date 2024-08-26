@@ -26,16 +26,15 @@ class Translator:
             self.languages = [getattr(Language, l.upper()) for l in languages]
         else:
             self.languages = None
-        
+        # initilise detector
         self.detector = self.get_detector()
-        
-        if self.test_mode:
-            self.model_str = 'test_model'
+        # download the m2m100 model
+        self.model_str = f'facebook/m2m100_{model_size}'
+        if test_mode:
             self.model = DummyTranslator()
         else:
-            self.model_str = f'facebook/m2m100_{model_size}'
             self.model =  M2M100ForConditionalGeneration.from_pretrained(self.model_str)
-        
+    
     def get_detector(self)-> LanguageDetectorBuilder:
         """Retrieves the language detection model. If a list of potential
         languages has been provided in the class initialisation then the 
@@ -122,22 +121,28 @@ class Translator:
 
 class DummyTranslator:
     
-    def generate(*args, **kwargs):
+    def generate(self, **kwargs):
         return ['out_token_1', 'out_token_2']
     
 class DummyTokenizer:
     
-    def __call__(**kwargs):
-        return ['out_token_1', 'out_token_2']
+    def __call__(self, text, **kwargs):
+        return {'tokens':[f'{text}_token_1', f'{text}_out_token_2']}
     
-    def batch_decode(in_tokens, **kwargs):
-        return in_tokens
+    def batch_decode(self, in_tokens, **kwargs):
+        return [' '.join(in_tokens)]
     
-    def get_lang_id(in_lang, **kwargs):
+    def get_lang_id(self, in_lang, **kwargs):
         return in_lang
     
 class DummyLanguageDetector:
     
-    def detect_language_of():
-        return 'la'
+    def detect_language_of(self, text):
+        
+        if text=='test_1':
+            return Language.ENGLISH
+        elif text=='test_2':
+            return Language.FRENCH
+        elif text=='test_1 \n\n test_2':
+            return Language.ENGLISH
     

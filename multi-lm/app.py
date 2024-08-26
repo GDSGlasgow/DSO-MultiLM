@@ -89,6 +89,7 @@ if __name__=='__main__':
                 submit = gr.Button("Submit")
 
             with gr.Column():
+                gr.Markdown('# Text Geo-Location')
                 text_output = gr.Markdown('Highlighted Toponyms')
                 text_map = gr.Plot(label='Toponyms mapped')
                 # add feedback
@@ -97,6 +98,7 @@ if __name__=='__main__':
                 txt_flag_btn.click(lambda *args: txt_callback.flag(list(args)), [text_input, text_output], None, preprocess=False)
                 
             with gr.Column():
+                gr.Markdown('# Image Geo-Location')
                 status = gr.Textbox(label="Predicted Location")
                 img_outputs = gr.HTML(label="Generated Maps")  # Using HTML for correct map rendering
                 # add feedback
