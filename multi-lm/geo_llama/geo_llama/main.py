@@ -141,7 +141,7 @@ class GeoLlama:
         try:
             best = matches[0]
         except:
-            return name + ' (unable to translate place name)'
+            return name
         best_d = distance((best.latitude, best.longitude), coordinates)
         for m in matches:
             d = distance((m.latitude, m.longitude), coordinates)
@@ -152,7 +152,7 @@ class GeoLlama:
         try:
             return best.address.split(',')[0]
         except IndexError as e:
-            return name + ' (unable to translate place name)'
+            return name
 
 
     def geoparse_pipeline(self, text:str, translation_option='With Translation'):
@@ -177,7 +177,10 @@ class GeoLlama:
         locations = self.geoparse(processed_text)
         # Create an HTML string with highlighted place names and tooltips
         translate_cache = {}
-        for loc in locations:
+        # we need to use placeholders in the tooltip to avoid headaches.
+        toponym_placeholders = {}
+        for i, loc in enumerate(locations):
+            
             lat, lon = loc['latitude'], loc['longitude']
             # if the text has been translated, we don't need to translate the name
             if translation_option == 'With translation':
@@ -190,9 +193,13 @@ class GeoLlama:
                 name = self.translate_name(loc['name'], (lat, lon))
                 translate_cache.update({loc['name']:name})
             # Creating a tooltip for the place name with coordinates
-            tooltip_html = f'<span style="background-color: yellow;" title="Toponym: {name} \n Coordinates: ({lat}, {lon})">{loc["name"]}</span>'
+            tooltip_html = f'<span style="background-color: yellow;" title="Toponym: %toponym_{i} \n Coordinates: ({lat}, {lon})">{loc["name"]}</span>'
+            ### this needs fixing if one tgoponym contains another e.g. London Bridge and London causes issues.
             processed_text = processed_text.replace(loc['name'], tooltip_html)
+            toponym_placeholders.update({f'%toponym_{i}':name})
 
+        for placeholder, name in toponym_placeholders.items():
+            processed_text=processed_text.replace(placeholder, name)
         # Generate the map plot
         mapped = plot_map(locations, translate_cache)
 
