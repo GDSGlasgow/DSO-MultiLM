@@ -2,17 +2,20 @@
 from io import BytesIO
 import os
 import sys
+
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(SCRIPT_DIR))
 # third party imports
 import gradio as gr
 import torch
-import folium
-
+import plotly.graph_objects as go
+import numpy as np
 
 from rag_vision.GPT4o_class import GPT4o
 
 geo_locator = GPT4o(device="cuda" if torch.cuda.is_available() else "cpu")
+
+
 # Function to handle the main processing logic
 def process_image(uploaded_file, openai_api_key, num_nearest_neighbors, num_farthest_neighbors, context_text=None):
     if not openai_api_key:
@@ -31,7 +34,6 @@ def process_image(uploaded_file, openai_api_key, num_nearest_neighbors, num_fart
         context_text=context_text
     )
 
-    # Get the location from the OPENAI API
     coordinates = geo_locator.get_location(
         OPENAI_API_KEY=openai_api_key,
         use_database_search=True  # Assuming you want to use the nearest/farthest neighbors
@@ -43,63 +45,77 @@ def process_image(uploaded_file, openai_api_key, num_nearest_neighbors, num_fart
     latitude = float(lat_str)
     longitude = float(lon_str)
 
-    # Generate the prediction map
-    prediction_map = folium.Map(location=[latitude, longitude], zoom_start=12)
-    folium.Marker([latitude, longitude], tooltip='Img2Loc Location',
-                  popup=f'latitude: {latitude}, longitude: {longitude}',
-                  icon=folium.Icon(color="red", icon="map-pin", prefix="fa")).add_to(prediction_map)
-    folium.TileLayer('cartodbpositron').add_to(prediction_map)
+    # Generate the prediction map using Plotly
+    prediction_map_fig = generate_plotly_map(
+        latitudes=[latitude],
+        longitudes=[longitude],
+        titles=["Location Prediction"],
+        colors=["red"],
+        zoom_level=9
+    )
 
-    # Generate the nearest neighbor map
-    nearest_map = None
+    # Generate the nearest neighbor map using Plotly
+    nearest_map_fig = None
     if geo_locator.neighbor_locations_array:
-        nearest_map = folium.Map(location=geo_locator.neighbor_locations_array[0], zoom_start=4)
-        folium.TileLayer('cartodbpositron').add_to(nearest_map)
-        for i in geo_locator.neighbor_locations_array:
-            folium.Marker(i, tooltip=f'({i[0]}, {i[1]})',
-                          icon=folium.Icon(color="green", icon="compass", prefix="fa")).add_to(nearest_map)
+        nearest_latitudes, nearest_longitudes = zip(*geo_locator.neighbor_locations_array)
+        nearest_map_fig = generate_plotly_map(
+            latitudes=nearest_latitudes,
+            longitudes=nearest_longitudes,
+            titles=[f"({lat}, {lon})" for lat, lon in geo_locator.neighbor_locations_array],
+            colors=["green"] * len(nearest_latitudes),
+            zoom_level=6
+        )
 
-    # Generate the farthest neighbor map
-    farthest_map = None
+    # Generate the farthest neighbor map using Plotly
+    farthest_map_fig = None
     if geo_locator.farthest_locations_array:
-        farthest_map = folium.Map(location=geo_locator.farthest_locations_array[0], zoom_start=3)
-        folium.TileLayer('cartodbpositron').add_to(farthest_map)
-        for i in geo_locator.farthest_locations_array:
-            folium.Marker(i, tooltip=f'({i[0]}, {i[1]})',
-                          icon=folium.Icon(color="blue", icon="compass", prefix="fa")).add_to(farthest_map)
+        farthest_latitudes, farthest_longitudes = zip(*geo_locator.farthest_locations_array)
+        farthest_map_fig = generate_plotly_map(
+            latitudes=farthest_latitudes,
+            longitudes=farthest_longitudes,
+            titles=[f"({lat}, {lon})" for lat, lon in geo_locator.farthest_locations_array],
+            colors=["blue"] * len(farthest_latitudes),
+            zoom_level=1
+        )
 
-    # Convert maps to HTML representations
-    prediction_map_html = map_to_html(prediction_map)
-    nearest_map_html = map_to_html(nearest_map) if nearest_map else ""
-    farthest_map_html = map_to_html(farthest_map) if farthest_map else ""
+    # Return the coordinates and Plotly figures directly
+    return coordinates, prediction_map_fig, nearest_map_fig, farthest_map_fig
 
-    # Create a combined HTML output for Gradio
-    combined_html = f"""
-    <div style="text-align: center;">
-        <h3>Prediction Map</h3>
-        {prediction_map_html}
-        <div style="display: flex; justify-content: space-between; margin-top: 20px;">
-            <div style="flex: 1; margin-right: 10px;">
-                <h4>Nearest Neighbor Points Map</h4>
-                {nearest_map_html}
-            </div>
-            <div style="flex: 1; margin-left: 10px;">
-                <h4>Farthest Neighbor Points Map</h4>
-                {farthest_map_html}
-            </div>
-        </div>
-    </div>
+
+def generate_plotly_map(latitudes, longitudes, titles, colors, zoom_level):
     """
+    Generate a Plotly map using Scattermapbox.
 
-    # Return the coordinates (location information) and the combined HTML with maps
-    return coordinates, combined_html
+    Args:
+        latitudes (list): List of latitudes for markers.
+        longitudes (list): List of longitudes for markers.
+        titles (list): List of titles (or hover text) for markers.
+        colors (list): List of colors for markers.
+        zoom_level (int): Zoom level for the map (higher value = closer zoom).
 
-
-def map_to_html(map_obj):
+    Returns:
+        plotly.graph_objs.Figure: A Plotly figure object.
     """
-    Convert a Folium map to an HTML representation.
-    """
-    return map_obj._repr_html_()
+    fig = go.Figure(go.Scattermapbox(
+        lat=latitudes,
+        lon=longitudes,
+        mode='markers',
+        marker=go.scattermapbox.Marker(size=15, color=colors),
+        text=titles,
+        hoverinfo="text"
+    ))
+
+    fig.update_layout(
+        mapbox=dict(
+            style="open-street-map",
+            center=dict(lat=np.mean(latitudes), lon=np.mean(longitudes)),
+            zoom=zoom_level
+        ),
+        margin={"r": 0, "t": 0, "l": 0, "b": 0}
+    )
+
+    return fig
+
 
 def main():
     # Gradio Interface
@@ -117,7 +133,10 @@ def main():
 
             with gr.Column():
                 status = gr.Textbox(label="Predicted Location")
-                maps_display = gr.HTML(label="Generated Maps")  # Using HTML for correct map rendering
+                prediction_map_plot = gr.Plot(label="Predicted Location Point Map")
+                with gr.Row():
+                    nearest_map_plot = gr.Plot(label="Similar Location Points Map")
+                    farthest_map_plot = gr.Plot(label="Dissimilar Location Points Map")
 
         submit.click(
             process_image,
@@ -127,15 +146,13 @@ def main():
                 num_nearest_neighbors,
                 num_farthest_neighbors
             ],
-            outputs=[status, maps_display]
+            outputs=[status, prediction_map_plot, nearest_map_plot, farthest_map_plot]
         )
 
     vision_app.launch()
-    
+
+
 if __name__ == '__main__':
-        
     # Initialize the GPT4v2Loc object
     geo_locator = GPT4o(device="cuda" if torch.cuda.is_available() else "cpu")
     main()
-
-

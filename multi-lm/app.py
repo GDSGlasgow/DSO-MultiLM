@@ -8,7 +8,7 @@ sys.path.append(PROJECT_PATH)
 sys.path.append('multi-lm/')
 sys.path.append('.')
 os.environ['NO_PROXY'] = '127.0.0.1'
- 
+
 # third party imports
 import gradio as gr
 # local imports
@@ -31,7 +31,7 @@ def main(image, text, api_key, n_near, n_far, include_text, translate_option):
         context_text = text
 
     ### process image
-    img_coords, img_html = process_image(uploaded_file=image,
+    img_coords, prediction_map_fig, nearest_map_fig, farthest_map_fig = process_image(uploaded_file=image,
                                          openai_api_key=api_key,
                                          num_nearest_neighbors=n_near,
                                          num_farthest_neighbors=n_far,
@@ -40,7 +40,7 @@ def main(image, text, api_key, n_near, n_far, include_text, translate_option):
     processed_text, text_map = geo_llama.geoparse_pipeline(text=text,
                                                            translation_option=translate_option)
 
-    return img_coords, img_html, processed_text, text_map
+    return img_coords, prediction_map_fig, nearest_map_fig, farthest_map_fig, processed_text, text_map
 
 
 if __name__ == '__main__':
@@ -100,7 +100,7 @@ if __name__ == '__main__':
                 submit = gr.Button("Submit")
 
             with gr.Column():
-                gr.Markdown('## Text Geo-Location')
+                gr.Markdown('# Text Geo-Location')
                 text_output = gr.Markdown('Highlighted Toponyms')
                 text_map = gr.Plot(label='Toponyms mapped')
                 # add feedback
@@ -110,13 +110,16 @@ if __name__ == '__main__':
                                    preprocess=False)
 
             with gr.Column():
-                gr.Markdown('## Image Geo-Location')
+                gr.Markdown('# Image Geo-Location')
                 status = gr.Textbox(label="Predicted Location")
-                img_outputs = gr.HTML(label="Generated Maps")  # Using HTML for correct map rendering
+                prediction_map_plot = gr.Plot(label="Predicted Location Point Map")
+                with gr.Row():
+                    nearest_map_plot = gr.Plot(label="Similar Location Points Map")
+                    farthest_map_plot = gr.Plot(label="Dissimilar Location Points Map")
                 # add feedback
                 img_flag_btn = gr.Button("Flag incorrect image location")
-                img_callback.setup([image_input, text_input, img_outputs], "flagged_images")
-                img_flag_btn.click(lambda *args: img_callback.flag(list(args)), [image_input, text_input, img_outputs],
+                img_callback.setup([image_input, text_input, prediction_map_plot, nearest_map_plot, farthest_map_plot], "flagged_images")
+                img_flag_btn.click(lambda *args: img_callback.flag(list(args)), [image_input, text_input, prediction_map_plot, nearest_map_plot, farthest_map_plot],
                                    None, preprocess=False)
 
         submit.click(
@@ -130,7 +133,7 @@ if __name__ == '__main__':
                 include_text,  # include text in image inference?
                 translate_options  # include translation?
             ],
-            outputs=[status, img_outputs, text_output, text_map],
+            outputs=[status, prediction_map_plot, nearest_map_plot, farthest_map_plot, text_output, text_map],
 
         )
     app.launch(share=True)
