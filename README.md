@@ -21,15 +21,15 @@ This software package provides a tool for geo-location of image and textual data
  The pipeline is currently structured to use GPT-4 as the VLM, however other models will also work. 
 
 ## System Requirements
-The GeoLlama model is run locally and requires 12 GB of GPU RAM on a Linux OS. The model requires access to the internet to retrieve information from the OpenStreetMaps API.
+The application requires 16 GB of GPU RAM on a Linux OS, using a CUDA enabled GPU. Internet access is required to retrieve information from the OpenStreetMaps API.
 
-The Vision-RAG model requires the use of an Open-AI API key and access to the embeddings dataset and required at least 20GB of system RAM if sing the full 5M embedding database. 
+The Vision-RAG model requires the use of an Open-AI API key and access to the embeddings dataset and required at least 40GB of system RAM if sing the full 5M embedding database. 
 
 ## Installation
 The package and all its dependencies can be installed from command line:
 ```$ python setup.py install```
 
-Please see `requiremnets.txt` for a full list of system requirements.
+Please see `requirements.txt` for a full list of system requirements.
 
 ## Usage
 Before use, a path to the embedding databases must be added to `multi_lm/rag_vision/GPT4o_class.py`. The global variables `DATABASE_PKL` and `DATABASE_BIN` should provide paths to a `.pkl` and a `.bin` version of the database, respectively. 
