@@ -10,8 +10,8 @@ sys.path.append('.')
 from geopy.distance import distance
 from geopy.geocoders import Nominatim
 # local imports
-from geo_llama.geo_llama.gazetteer import Gazetteer 
-from geo_llama.geo_llama.plotting import plot_map
+from geo_llama.gazetteer import Gazetteer 
+from geo_llama.plotting import plot_map
 
 """Uses the GeoLlama3-8b-toponym and GeoLlama3-7b-RAG models to extract and
 geolocate toponyms from English text.
