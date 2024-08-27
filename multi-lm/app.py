@@ -1,22 +1,22 @@
 # standard library imports
 import sys
 import os
+import pathlib
 
 PROJECT_PATH = os.getcwd()
 sys.path.append(PROJECT_PATH)
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-sys.path.append('multi-lm/geo_llama/')
 sys.path.append('multi-lm/')
-import random
+sys.path.append('.')
+os.environ['NO_PROXY'] = '127.0.0.1'
+ 
 # third party imports
 import gradio as gr
-import torch
 # local imports
 from rag_vision.vision_app import process_image
 from rag_vision.GPT4o_class import GPT4o
-from geo_llama.geo_llama.model import TopoModel, RAGModel
-from geo_llama.geo_llama.translator import Translator
-from geo_llama.geo_llama.main import GeoLlama
+from geo_llama.model import TopoModel, RAGModel
+from geo_llama.translator import Translator
+from geo_llama.main import GeoLlama
 
 
 def main(image, text, api_key, n_near, n_far, include_text, translate_option):
@@ -44,26 +44,36 @@ def main(image, text, api_key, n_near, n_far, include_text, translate_option):
 
 
 if __name__ == '__main__':
-    with open('../multi-lm/data/app_info.txt', 'r') as f:
+    # set some paths
+    data_path = pathlib.Path(PROJECT_PATH, 'multi-lm/geo_llama/data/')
+    prompt_template_path = pathlib.Path(data_path, 'prompt_templates/prompt_template.txt')
+    topo_instruct_path = pathlib.Path(data_path, 'prompt_templates/topo_instruction.txt')
+    rag_instruct_path = pathlib.Path(data_path, 'prompt_templates/rag_instruction.txt')
+    rag_input_path = pathlib.Path(data_path, 'prompt_templates/rag_input.txt')
+    model_config_path = pathlib.Path(data_path, 'config_files/model_config.json')
+    # open the app infor file
+    with open(pathlib.Path(PROJECT_PATH, 'multi-lm/data/app_info.txt'), 'r') as f:
         app_info = f.read()
-
+    # load geo_llama models
     translator = Translator(model_size='1.2B')
     topo_model = TopoModel(model_name='JoeShingleton/GeoLlama-3.1-8b-toponym',
-                           prompt_path='../multi-lm/geo_llama/data/prompt_templates/prompt_template.txt',
-                           instruct_path='../multi-lm/geo_llama/data/prompt_templates/topo_instruction.txt',
+                           prompt_path=prompt_template_path,
+                           instruct_path=topo_instruct_path,
                            input_path=None,
-                           config_path='../multi-lm/geo_llama/data/config_files/model_config.json')
+                           config_path=model_config_path)
 
     rag_model = RAGModel(model_name='JoeShingleton/GeoLlama-3.1-8b-RAG',
-                         prompt_path='../multi-lm/geo_llama/data/prompt_templates/prompt_template.txt',
-                         instruct_path='../multi-lm/geo_llama/data/prompt_templates/rag_instruction.txt',
-                         input_path='../multi-lm/geo_llama/data/prompt_templates/rag_input.txt',
-                         config_path='../multi-lm/geo_llama/data/config_files/model_config.json')
+                         prompt_path=prompt_template_path,
+                         instruct_path=rag_instruct_path,
+                         input_path=rag_input_path,
+                         config_path=model_config_path)
 
     geo_llama = GeoLlama(topo_model, rag_model, translator)
     # set up logging files
     img_callback = gr.CSVLogger()
     txt_callback = gr.CSVLogger()
+
+    # build UI
     with gr.Blocks() as app:
         gr.Markdown(app_info)
         with gr.Row():
@@ -90,6 +100,7 @@ if __name__ == '__main__':
                 submit = gr.Button("Submit")
 
             with gr.Column():
+                gr.Markdown('## Text Geo-Location')
                 text_output = gr.Markdown('Highlighted Toponyms')
                 text_map = gr.Plot(label='Toponyms mapped')
                 # add feedback
@@ -99,6 +110,7 @@ if __name__ == '__main__':
                                    preprocess=False)
 
             with gr.Column():
+                gr.Markdown('## Image Geo-Location')
                 status = gr.Textbox(label="Predicted Location")
                 img_outputs = gr.HTML(label="Generated Maps")  # Using HTML for correct map rendering
                 # add feedback

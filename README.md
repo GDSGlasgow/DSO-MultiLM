@@ -16,6 +16,8 @@ This software package provides a tool for geo-location of image and textual data
  ### Vision-RAG image geocoding
  A RAG based pipeline which uses a Vision Language Model (VLM) to estimate location from images. The model produces an embedding for a given image, which is then compared to an embedding database of geo-tagged images. The geo-tags of the most similar and most dissimilar images are then extracted and used to help construct the prompt for the VLM. Optionally, text accompanying the image can also be included in the prompt to aid inference. 
 
+ The script `create_rag_database.py` will download the [OSV-5M](https://osv5m.github.io/) dataset, and produce the required embedding database from this using the StreetCLIP model. This requires considereable GPU compute time. 
+
  The pipeline is currently structured to use GPT-4 as the VLM, however other models will also work. 
 
 ## System Requirements
