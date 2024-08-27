@@ -7,6 +7,8 @@ PROJECT_PATH = os.getcwd()
 sys.path.append(PROJECT_PATH)
 sys.path.append('multi-lm/')
 sys.path.append('.')
+os.environ['NO_PROXY'] = '127.0.0.1'
+ 
 # third party imports
 import gradio as gr
 # local imports
@@ -98,6 +100,7 @@ if __name__ == '__main__':
                 submit = gr.Button("Submit")
 
             with gr.Column():
+                gr.Markdown('## Text Geo-Location')
                 text_output = gr.Markdown('Highlighted Toponyms')
                 text_map = gr.Plot(label='Toponyms mapped')
                 # add feedback
@@ -107,6 +110,7 @@ if __name__ == '__main__':
                                    preprocess=False)
 
             with gr.Column():
+                gr.Markdown('## Image Geo-Location')
                 status = gr.Textbox(label="Predicted Location")
                 img_outputs = gr.HTML(label="Generated Maps")  # Using HTML for correct map rendering
                 # add feedback
