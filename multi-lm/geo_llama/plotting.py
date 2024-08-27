@@ -1,3 +1,5 @@
+# standard libbrary imports
+from typing import Optional
 # third party imports
 import pandas as pd
 import numpy as np
@@ -5,11 +7,29 @@ import plotly.graph_objects as go
 
 """A few functions to produce the output maps"""
 
-def plot_map(json_locations, translate_cache):
+def plot_map(json_locations:list[dict], translate_cache:Optional[dict]=None):
+    '''Plots the locations given in json_locations.
+    
+    args:
+        json_locations (list[dict]) : a json formatted list of locations with
+            keys "name", "latitude" and "longitude".
+        translate_cache (dict|None) : a dictionary with non-english names as 
+            keys and english names as values.
+            
+    returns:
+        plotly.mapbox : the locations mapped with OSM backdrop mapping.  
+    '''
+    # load the locations into a dataframe and open as mapbox
     df = pd.DataFrame(json_locations)
     mapbox = get_mapbox(df)
-    name_list = [translate_cache[n] for n in df['name'].tolist()]
-
+    
+    # translate the names if required
+    if translate_cache:
+        name_list = [translate_cache[n] for n in df['name'].tolist()]
+    else:
+        name_list = df['name'].to_list()
+        
+    # create a figure
     fig = go.Figure(go.Scattermapbox(
                 customdata=name_list,
                 lat=df['latitude'].tolist(),
